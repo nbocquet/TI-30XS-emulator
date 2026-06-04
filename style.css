@@ -582,9 +582,27 @@ button:active{
 }
 
 /* === Dual-function button labels === */
-.second-label { display: none; font-size: 0.75em; color: #dbf78d; }
-.primary-label { display: inline; }
-body.second-active .second-label  { display: inline; }
+.second-label {
+    display: block;
+    font-size: 0.62em;
+    line-height: 1;
+    color: #dbf78d;
+    font-weight: normal;
+}
+.primary-label {
+    display: block;
+    line-height: 1.15;
+}
+button:has(.primary-label) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 2px 3px;
+}
+.second-label { order: -1; }
+body.second-active .second-label  { font-size: 1em; font-weight: bold; order: 0; }
 body.second-active .primary-label { display: none; }
 #secondBtn.active {
     background-color: #d4a017;

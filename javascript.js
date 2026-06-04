@@ -403,6 +403,8 @@ const SECOND_MAP = {
   'decimal':     'comma',
   pi:            'hyp',
   power:         'xroot',
+  mode:          'quit',
+  squared:       'sqrt',
 };
 
 class Calculator {
@@ -485,6 +487,7 @@ class Calculator {
       case 'ans':              this._inputConstant('Ans');          break;
       case 'und':              this._toggleFracMixed();             break;
       case 'ins':              /* INS not yet implemented */        break;
+      case 'quit':             this.menuState = null; this._notify(); break;
       case 'comma':            this._inputComma();                  break;
       case 'data':             this._openStoMenu();                 break;
       case 'rcl':              this._openRclMenu();                 break;
