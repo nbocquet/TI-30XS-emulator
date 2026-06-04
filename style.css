@@ -82,15 +82,17 @@ body{
         display:block;
         width:300px;
         height: 148px;
-        border: 3px solid rgb(82, 122, 122);
-        background-color: rgba(166, 180, 175, 0.884);
+        border: 3px solid rgb(60, 92, 92);
+        background-color: #c8d8b0;
+        background-image: linear-gradient(160deg, #d4e4bc 0%, #bdd0a0 60%, #b0c494 100%);
         margin: 0 auto;
         border-bottom-left-radius: 25px;
         border-bottom-right-radius: 25px;
         border-top-left-radius: 10px;
         border-top-right-radius: 10px;
-        border-top: 4px solid rgb(82, 122, 122);
-        border-bottom: 2px solid rgb(82, 122, 122);
+        border-top: 4px solid rgb(60, 92, 92);
+        border-bottom: 2px solid rgb(60, 92, 92);
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.18);
 }
 .indicators-display{
     display: flex;
@@ -99,10 +101,10 @@ body{
     height: 18px;
     font-size: 0.60em;
     font-weight: bold;
-    color: rgb(47, 56, 58);
+    color: rgb(30, 50, 30);
 }
 .indicator-badge{
-    border: 1px solid rgb(47, 56, 58);
+    border: 1px solid rgb(30, 50, 30);
     border-radius: 2px;
     padding: 0 3px;
     line-height: 1.3;
@@ -119,7 +121,7 @@ body{
     justify-content: flex-end;
     margin-top: 3px;
     font-size: 0.85em;
-    color: rgb(47, 56, 58);
+    color: rgb(30, 55, 30);
     overflow: hidden;
     white-space: nowrap;
 }
@@ -133,10 +135,11 @@ body{
     font-size:1.575em;
     margin-top: 42px;
     margin-left:10px;
+    color: rgb(20, 40, 20);
 }
 .calculator-display.error{
     font-size: 0.95em;
-    color: rgb(160, 40, 40);
+    color: rgb(140, 20, 20);
     margin-top: 50px;
 }
 
@@ -292,32 +295,30 @@ button{
     width:60px;
     height:40px;
     border-radius: 16px;
+    transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, background-color 0.08s ease-out;
+}
+button:active{
+    transform: scale(0.91);
 }
 .button-container{
     display:flex;
     width:60px;
 }
 .operator{
-    background-color:rgb(66, 79, 85);  
-    border-right: 2px solid rgb(47, 56, 58);
-    border-bottom: 2px solid rgb(47, 56, 58);
-    border-top:2px solid rgb(68, 81, 83);
-    border-left:2px solid rgb(68, 81, 83);
+    background-color:rgb(66, 79, 85);
+    border: none;
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 6px rgba(0,0,0,0.4);
     color:white;
     font-size:1.375em;
     font-weight: bold;
 }
 .operator:hover{
-    background-color:rgb(54, 67, 71);  
-    border-top:2px solid rgb(75, 89, 90);
-    border-left:2px solid rgb(75, 88, 88);
+    background-color:rgb(76, 91, 97);
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 8px rgba(0,0,0,0.5);
 }
 .operator:active{
-    background-color:rgb(45, 56, 58); 
-    border-top: 2px solid rgb(34, 41, 43);
-    border-left: 2px solid rgb(34, 41, 43);
-    border-right: 3px solid rgb(69, 80, 83);
-    border-bottom: 3px solid rgb(69, 81, 85);
+    background-color:rgb(45, 56, 58);
+    box-shadow: 0 1px 0 rgb(35, 44, 46), 0 1px 3px rgba(0,0,0,0.4);
 }
 .number{
     font-size: 1.063em;
@@ -327,101 +328,77 @@ button{
     color:white;
     font-size:0.813em;
     font-weight:bold;
-    background-color:rgb(122, 180, 180); 
-    border-right: 2px solid rgb(99, 145, 145); 
-    border-bottom: 2px solid rgb(99, 145, 145); 
-    border-top:2px solid rgb(175, 212, 212);
-    border-left:2px solid rgb(175, 212, 212);
+    background-color:rgb(122, 180, 180);
+    border: none;
+    box-shadow: 0 3px 0 rgb(80, 120, 120), 0 4px 6px rgba(0,0,0,0.35);
 }
 .NaN:hover{
-    background-color:rgb(109, 168, 168); 
+    background-color:rgb(135, 193, 193);
+    box-shadow: 0 3px 0 rgb(80, 120, 120), 0 4px 8px rgba(0,0,0,0.45);
 }
 .NaN:active{
-    background-color:rgb(91, 134, 134); 
-    border-right: 2px solid rgb(150, 201, 201); 
-    border-bottom: 2px solid rgb(150, 194, 194);
-    border-top:2px solid rgb(78, 122, 122);
-    border-left:2px solid rgb(77, 117, 117);
+    background-color:rgb(91, 134, 134);
+    box-shadow: 0 1px 0 rgb(80, 120, 120), 0 1px 3px rgba(0,0,0,0.35);
 }
 .navigation-arrow{
-    background-color:rgb(66, 79, 85);  
-    border-right: 2px solid rgb(47, 56, 58);
-    border-bottom: 2px solid rgb(47, 56, 58);
-    border-top:2px solid rgb(68, 81, 83);
-    border-left:2px solid rgb(68, 81, 83);
+    background-color:rgb(66, 79, 85);
+    border: none;
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 6px rgba(0,0,0,0.4);
     color:white;
     font-size:1.375em;
     font-weight: bold;
 }
 .navigation-arrow:hover{
-    background-color:rgb(54, 67, 71);  
-    border-top:2px solid rgb(75, 89, 90);
-    border-left:2px solid rgb(75, 88, 88);
+    background-color:rgb(76, 91, 97);
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 8px rgba(0,0,0,0.5);
 }
 .navigation-arrow:active{
-    background-color:rgb(45, 56, 58); 
-    border-top: 2px solid rgb(34, 41, 43);
-    border-left: 2px solid rgb(34, 41, 43);
-    border-right: 3px solid rgb(69, 80, 83);
-    border-bottom: 3px solid rgb(69, 81, 85);
+    background-color:rgb(45, 56, 58);
+    box-shadow: 0 1px 0 rgb(35, 44, 46), 0 1px 3px rgba(0,0,0,0.4);
 }
 .number{
-    background-color:rgb(227, 231, 231); 
-    border-top: 2px solid rgb(207, 209, 209);
-    border-left: 2px solid rgb(207, 209, 209);
-    border-right: 2px solid rgb(122, 133, 136);
-    border-bottom: 2px solid rgb(122, 133, 136);
+    background-color:rgb(232, 235, 235);
+    border: none;
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 6px rgba(0,0,0,0.25);
     color:rgb(47, 56, 58);
 }
 .number:hover{
-    background-color:rgb(220, 221, 221);
+    background-color:rgb(240, 242, 242);
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 8px rgba(0,0,0,0.3);
 }
 .number:active{
-    background-color:rgb(182, 182, 182); 
-    border-top: 2px solid rgb(122, 133, 136);
-    border-left: 2px solid rgb(122, 133, 136);
-    border-right: 2px solid rgb(207, 209, 209);
-    border-bottom: 2px solid rgb(207, 209, 209);
+    background-color:rgb(195, 198, 200);
+    box-shadow: 0 1px 0 rgb(140, 150, 153), 0 1px 3px rgba(0,0,0,0.25);
 }
 #secondBtn{
-    color:rgb(54, 67, 71); 
-    background-color: rgb(124, 196, 124);
-    border-top: 2px solid rgb(166, 214, 166);
-    border-left: 2px solid rgb(166, 214, 166);
-    border-right: 2px solid rgb(90, 150, 90);
-    border-bottom: 2px solid  rgb(90, 150, 90);
+    color:rgb(40, 55, 40);
+    background-color: #aacc7a;
+    border: none;
+    box-shadow: 0 3px 0 #7a9c4a, 0 4px 6px rgba(0,0,0,0.35);
     font-size:0.813em;
     font-weight:bold;
-    
 }
 #secondBtn:hover{
-    background-color: rgb(111, 173, 111);
+    background-color: #bcd98a;
+    box-shadow: 0 3px 0 #7a9c4a, 0 4px 8px rgba(0,0,0,0.45);
 }
 #secondBtn:active{
-    background-color: rgb(87, 141, 87);
-    border-top: 2px solid rgb(77, 116, 77);
-    border-left: 2px solid rgb(77, 116, 77);
-    border-right: 2px solid rgb(166, 214, 166);
-    border-bottom: 2px solid  rgb(166, 214, 166);
+    background-color: #8aac5a;
+    box-shadow: 0 1px 0 #7a9c4a, 0 1px 3px rgba(0,0,0,0.35);
 }
 .accessory{
-    background-color:rgb(227, 231, 231); 
-    border-top: 2px solid rgb(207, 209, 209);
-    border-left: 2px solid rgb(207, 209, 209);
-    border-right: 2px solid rgb(122, 133, 136);
-    border-bottom: 2px solid rgb(122, 133, 136);
+    background-color:rgb(232, 235, 235);
+    border: none;
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 6px rgba(0,0,0,0.25);
     color:rgb(47, 56, 58);
 }
-
 .accessory:hover{
-    background-color:rgb(220, 221, 221);
+    background-color:rgb(240, 242, 242);
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 8px rgba(0,0,0,0.3);
 }
 .accessory:active{
-    background-color:rgb(182, 182, 182); 
-    border-top: 2px solid rgb(122, 133, 136);
-    border-left: 2px solid rgb(122, 133, 136);
-    border-right: 2px solid rgb(207, 209, 209);
-    border-bottom: 2px solid rgb(207, 209, 209);
+    background-color:rgb(195, 198, 200);
+    box-shadow: 0 1px 0 rgb(140, 150, 153), 0 1px 3px rgba(0,0,0,0.25);
 }
 .negative{
     font-size: 1.000em;
@@ -591,16 +568,13 @@ button{
 }
 
 /* === Dual-function button labels === */
-.second-label { display: none; font-size: 0.75em; }
+.second-label { display: none; font-size: 0.75em; color: #dbf78d; }
 .primary-label { display: inline; }
 body.second-active .second-label  { display: inline; }
 body.second-active .primary-label { display: none; }
 #secondBtn.active {
-    background-color: rgb(220, 170, 40);
-    border-top:  2px solid rgb(240, 200, 80);
-    border-left: 2px solid rgb(240, 200, 80);
-    border-right:  2px solid rgb(160, 120, 20);
-    border-bottom: 2px solid rgb(160, 120, 20);
+    background-color: #d4a017;
+    box-shadow: 0 1px 0 #a07800, 0 1px 3px rgba(0,0,0,0.4);
 }
 
 /* === Pink colorway via CSS attribute (replaces inline JS styles) === */
@@ -610,34 +584,24 @@ body[data-colorway="pink"] #screen       { border-color: rgb(175, 134, 141); }
 body[data-colorway="pink"] #solar        { border-color: rgb(175, 134, 141); }
 
 body[data-colorway="pink"] .NaN {
-    background-color: pink;
-    border-top:    2px solid rgb(255, 221, 227);
-    border-left:   2px solid rgb(255, 221, 227);
-    border-right:  2px solid rgb(182, 118, 129);
-    border-bottom: 2px solid rgb(182, 118, 129);
+    background-color: rgb(230, 150, 165);
+    border: none;
+    box-shadow: 0 3px 0 rgb(170, 100, 115), 0 4px 6px rgba(0,0,0,0.35);
 }
-body[data-colorway="pink"] .NaN:hover  { background-color: rgb(235, 175, 185); }
+body[data-colorway="pink"] .NaN:hover  { background-color: rgb(245, 170, 183); }
 body[data-colorway="pink"] .NaN:active {
-    background-color: rgb(192, 145, 154);
-    border-top:    2px solid rgb(182, 118, 129);
-    border-left:   2px solid rgb(182, 118, 129);
-    border-right:  2px solid rgb(255, 221, 227);
-    border-bottom: 2px solid rgb(255, 221, 227);
+    background-color: rgb(192, 125, 140);
+    box-shadow: 0 1px 0 rgb(170, 100, 115), 0 1px 3px rgba(0,0,0,0.35);
 }
 body[data-colorway="pink"] #secondBtn {
-    background-color: rgb(124, 196, 124);
-    border-top:    2px solid rgb(166, 214, 166);
-    border-left:   2px solid rgb(166, 214, 166);
-    border-right:  2px solid rgb(90, 150, 90);
-    border-bottom: 2px solid rgb(90, 150, 90);
+    background-color: #aacc7a;
+    border: none;
+    box-shadow: 0 3px 0 #7a9c4a, 0 4px 6px rgba(0,0,0,0.35);
 }
-body[data-colorway="pink"] #secondBtn:hover  { background-color: rgb(111, 173, 111); }
+body[data-colorway="pink"] #secondBtn:hover  { background-color: #bcd98a; }
 body[data-colorway="pink"] #secondBtn:active {
-    background-color: rgb(87, 141, 87);
-    border-top:    2px solid rgb(77, 116, 77);
-    border-left:   2px solid rgb(77, 116, 77);
-    border-right:  2px solid rgb(166, 214, 166);
-    border-bottom: 2px solid rgb(166, 214, 166);
+    background-color: #8aac5a;
+    box-shadow: 0 1px 0 #7a9c4a, 0 1px 3px rgba(0,0,0,0.35);
 }
 
 /* === Second screen panel === */
@@ -646,8 +610,8 @@ body[data-colorway="pink"] #secondBtn:active {
     top: 80px;
     left: calc(50% + 230px);
     width: 360px;
-    background: rgba(155, 172, 167, 0.97);
-    border: 3px solid rgb(82, 122, 122);
+    background: #c8d8b0;
+    border: 3px solid rgb(60, 92, 92);
     border-radius: 12px;
     box-shadow: 4px 4px 18px rgba(0,0,0,0.45);
     z-index: 1000;
@@ -660,7 +624,7 @@ body[data-colorway="pink"] #secondBtn:active {
     justify-content: space-between;
     align-items: center;
     padding: 6px 12px;
-    background: rgb(82, 122, 122);
+    background: rgb(60, 92, 92);
     color: white;
     border-radius: 8px 8px 0 0;
     cursor: move;
@@ -686,7 +650,7 @@ body[data-colorway="pink"] #secondBtn:active {
     gap: 5px;
     font-size: 0.85em;
     font-weight: bold;
-    color: rgb(47, 56, 58);
+    color: rgb(30, 50, 30);
     min-height: 22px;
     margin-bottom: 4px;
 }
@@ -694,9 +658,9 @@ body[data-colorway="pink"] #secondBtn:active {
     font-size: 1.6em;
     text-align: right;
     min-height: 1.8em;
-    color: rgb(47, 56, 58);
+    color: rgb(30, 55, 30);
     word-break: break-all;
-    border-bottom: 1px solid rgba(82,122,122,0.3);
+    border-bottom: 1px solid rgba(60,92,60,0.3);
     padding-bottom: 6px;
     margin-bottom: 6px;
 }
@@ -704,17 +668,17 @@ body[data-colorway="pink"] #secondBtn:active {
     font-size: 2.8em;
     text-align: right;
     font-weight: bold;
-    color: rgb(30, 40, 42);
+    color: rgb(20, 40, 20);
     min-height: 1.2em;
 }
-.ss-result.error { font-size: 1.2em; color: rgb(160, 40, 40); }
+.ss-result.error { font-size: 1.2em; color: rgb(140, 20, 20); }
 
 /* === Second screen toggle button === */
 .second-screen-btn {
     display: block;
     margin: 6px auto 20px;
     padding: 6px 18px;
-    background: rgb(82, 122, 122);
+    background: rgb(60, 92, 92);
     color: white;
     border: none;
     border-radius: 8px;
@@ -722,5 +686,11 @@ body[data-colorway="pink"] #secondBtn:active {
     font-size: 0.88em;
     width: auto;
     height: auto;
+    box-shadow: 0 2px 0 rgb(35, 60, 60), 0 3px 5px rgba(0,0,0,0.3);
+    transition: transform 0.08s ease-out, box-shadow 0.08s ease-out;
 }
-.second-screen-btn:hover { background: rgb(68, 104, 104); }
+.second-screen-btn:hover { background: rgb(75, 112, 112); }
+.second-screen-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 1px 0 rgb(35, 60, 60), 0 1px 3px rgba(0,0,0,0.3);
+}
