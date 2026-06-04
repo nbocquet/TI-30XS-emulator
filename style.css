@@ -182,6 +182,21 @@ sup {
     vertical-align: super;
     line-height: 0;
 }
+
+/* Blinking cursor in expression */
+.calc-cursor {
+    display: inline-block;
+    width: 1px;
+    height: 0.9em;
+    background: currentColor;
+    vertical-align: text-bottom;
+    margin: 0 1px;
+    animation: calc-blink 1s step-end infinite;
+}
+@keyframes calc-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
 .row-1{
     display:flex;
     margin-top:27px;

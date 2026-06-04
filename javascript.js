@@ -127,6 +127,7 @@ class Evaluator {
         return Math.pow(b, 1 / a);
       case 'nPr':      return Evaluator._nPr(a, b);
       case 'nCr':      return Evaluator._nCr(a, b);
+      case 'percent':  return a / 100;
       default:
         throw new CalcError('SYNTAX ERROR');
     }
@@ -353,13 +354,14 @@ class Evaluator {
 // ============================================================
 
 const SECOND_MAP = {
-  sin:  'asin',
-  cos:  'acos',
-  tan:  'atan',
-  ln:   'exp',
-  log:  'pow10',
-  sqrt: 'cbrt',
-  'n/d': 'F↔D',
+  sin:         'asin',
+  cos:         'acos',
+  tan:         'atan',
+  ln:          'exp',
+  log:         'pow10',
+  sqrt:        'cbrt',
+  'n/d':       'F↔D',
+  'close-paren': 'percent',
 };
 
 class Calculator {
@@ -377,6 +379,7 @@ class Calculator {
     this.memory         = { x: 0, y: 0, z: 0, t: 0, a: 0, b: 0, c: 0 };
     this.isOff          = false;
     this.rawValue       = null;
+    this.cursorPos      = 0;
     this.fracDisplay    = true;
     this.displayManager = null;
     this.secondScreen   = null;
@@ -416,6 +419,11 @@ class Calculator {
       case 'mode':             this._cycleAngleMode();              break;
       case 'up':               this._navigateHistory('up');         break;
       case 'down':             this._navigateHistory('down');       break;
+      case 'left':             this._cursorLeft();                  break;
+      case 'right':            this._cursorRight();                 break;
+      case 'forward':          this._cursorLeft();                  break;
+      case 'backward':         this._cursorRight();                 break;
+      case 'percent':          this._inputPostfix('percent');       break;
       case 'addition':         this._inputOperator('+');            break;
       case 'subtraction':      this._inputOperator('-');            break;
       case 'multiplication':   this._inputOperator('*');            break;
@@ -453,22 +461,26 @@ class Calculator {
   _inputDigit(d) {
     if (this.error) this.clear();
     if (this.justCalculated) {
-      this.tokens = [];
-      this.result = null;
-      this.justCalculated = false;
+      this.tokens = []; this.result = null; this.justCalculated = false; this.cursorPos = 0;
     }
 
-    const last = this.tokens[this.tokens.length - 1];
+    const prev = this.tokens[this.cursorPos - 1];
+    const next = this.tokens[this.cursorPos];
 
-    // Absorb a preceding unary-minus into a negative number literal
-    if (last && last.type === 'unary-minus') {
-      this.tokens.pop();
-      this.tokens.push({ type: 'number', value: '-' + d });
-    } else if (last && last.type === 'number') {
-      if (last.value === '0') last.value = d;
-      else last.value += d;
+    if (prev && prev.type === 'unary-minus') {
+      this.tokens.splice(this.cursorPos - 1, 1, { type: 'number', value: '-' + d });
+      // cursorPos unchanged: removed 1, inserted 1 at same index, cursor stays after it
+    } else if (prev && prev.type === 'number') {
+      if (prev.value === '0') prev.value = d;
+      else prev.value += d;
+    } else if (next && next.type === 'number') {
+      // Prepend to following number to avoid adjacent-number-token evaluation error;
+      // advance cursor past the merged token so subsequent digits append normally.
+      next.value = d + next.value;
+      this.cursorPos++;
     } else {
-      this.tokens.push({ type: 'number', value: d });
+      this.tokens.splice(this.cursorPos, 0, { type: 'number', value: d });
+      this.cursorPos++;
     }
     this._notify();
   }
@@ -480,49 +492,47 @@ class Calculator {
       this.tokens = [{ type: 'constant', value: 'Ans' }];
       this.result = null;
       this.justCalculated = false;
+      this.cursorPos = 1;
     }
 
     if (!this.tokens.length) {
       if (op === '-') {
-        this.tokens.push({ type: 'unary-minus' });
+        this.tokens.splice(this.cursorPos, 0, { type: 'unary-minus' });
+        this.cursorPos++;
         this._notify();
       }
       return;
     }
 
-    const last = this.tokens[this.tokens.length - 1];
-    // Replace trailing operator
-    if (last.type === 'operator') {
-      last.value = op;
+    const prev = this.tokens[this.cursorPos - 1];
+    if (prev && prev.type === 'operator') {
+      prev.value = op;
       this._notify();
       return;
     }
 
-    this.tokens.push({ type: 'operator', value: op });
+    this.tokens.splice(this.cursorPos, 0, { type: 'operator', value: op });
+    this.cursorPos++;
     this._notify();
   }
 
   _inputFunction(name) {
     if (this.error) this.clear();
     if (this.justCalculated) {
-      this.tokens = [];
-      this.result = null;
-      this.justCalculated = false;
+      this.tokens = []; this.result = null; this.justCalculated = false; this.cursorPos = 0;
     }
-    this.tokens.push({ type: 'function', value: name });
-    this.tokens.push({ type: 'lparen' });
-    this.openParenCount++;
+    this.tokens.splice(this.cursorPos, 0, { type: 'function', value: name }, { type: 'lparen' });
+    this.cursorPos += 2;
     this._notify();
   }
 
   _inputConstant(name) {
     if (this.error) this.clear();
     if (this.justCalculated) {
-      this.tokens = [];
-      this.result = null;
-      this.justCalculated = false;
+      this.tokens = []; this.result = null; this.justCalculated = false; this.cursorPos = 0;
     }
-    this.tokens.push({ type: 'constant', value: name });
+    this.tokens.splice(this.cursorPos, 0, { type: 'constant', value: name });
+    this.cursorPos++;
     this._notify();
   }
 
@@ -530,16 +540,18 @@ class Calculator {
     if (this.error) this.clear();
     if (which === '(') {
       if (this.justCalculated) {
-        this.tokens = [];
-        this.result = null;
-        this.justCalculated = false;
+        this.tokens = []; this.result = null; this.justCalculated = false; this.cursorPos = 0;
       }
-      this.tokens.push({ type: 'lparen' });
-      this.openParenCount++;
+      this.tokens.splice(this.cursorPos, 0, { type: 'lparen' });
+      this.cursorPos++;
     } else {
-      if (this.openParenCount <= 0) return;
-      this.tokens.push({ type: 'rparen' });
-      this.openParenCount--;
+      // Only allow closing if there's an unmatched open paren to the left of cursor
+      const openLeft = this.tokens.slice(0, this.cursorPos).reduce(
+        (n, t) => t.type === 'lparen' ? n + 1 : t.type === 'rparen' ? n - 1 : n, 0
+      );
+      if (openLeft <= 0) return;
+      this.tokens.splice(this.cursorPos, 0, { type: 'rparen' });
+      this.cursorPos++;
     }
     this._notify();
   }
@@ -548,16 +560,16 @@ class Calculator {
     if (this.error) this.clear();
     if (this.justCalculated) {
       this.tokens = [{ type: 'number', value: '0.' }];
-      this.result = null;
-      this.justCalculated = false;
+      this.result = null; this.justCalculated = false; this.cursorPos = 1;
       this._notify();
       return;
     }
-    const last = this.tokens[this.tokens.length - 1];
-    if (last && last.type === 'number') {
-      if (!last.value.includes('.')) last.value += '.';
+    const prev = this.tokens[this.cursorPos - 1];
+    if (prev && prev.type === 'number') {
+      if (!prev.value.includes('.')) prev.value += '.';
     } else {
-      this.tokens.push({ type: 'number', value: '0.' });
+      this.tokens.splice(this.cursorPos, 0, { type: 'number', value: '0.' });
+      this.cursorPos++;
     }
     this._notify();
   }
@@ -567,19 +579,19 @@ class Calculator {
 
     if (this.justCalculated) {
       this.tokens = [{ type: 'unary-minus' }, { type: 'constant', value: 'Ans' }];
-      this.result = null;
-      this.justCalculated = false;
+      this.result = null; this.justCalculated = false; this.cursorPos = 2;
       this._notify();
       return;
     }
 
-    const last = this.tokens[this.tokens.length - 1];
-    if (last && last.type === 'number') {
-      last.value = last.value.startsWith('-') ? last.value.slice(1) : '-' + last.value;
+    const prev = this.tokens[this.cursorPos - 1];
+    if (prev && prev.type === 'number') {
+      prev.value = prev.value.startsWith('-') ? prev.value.slice(1) : '-' + prev.value;
       this._notify();
       return;
     }
-    this.tokens.push({ type: 'unary-minus' });
+    this.tokens.splice(this.cursorPos, 0, { type: 'unary-minus' });
+    this.cursorPos++;
     this._notify();
   }
 
@@ -587,11 +599,10 @@ class Calculator {
     if (!this.tokens.length && !this.justCalculated) return;
     if (this.justCalculated) {
       this.tokens = [{ type: 'constant', value: 'Ans' }];
-      this.result = null;
-      this.justCalculated = false;
+      this.result = null; this.justCalculated = false; this.cursorPos = 1;
     }
-    this.tokens.push({ type: 'operator', value: '^' });
-    this.tokens.push({ type: 'number', value: '2' });
+    this.tokens.splice(this.cursorPos, 0, { type: 'operator', value: '^' }, { type: 'number', value: '2' });
+    this.cursorPos += 2;
     this._notify();
   }
 
@@ -599,37 +610,38 @@ class Calculator {
     if (!this.tokens.length && !this.justCalculated) return;
     if (this.justCalculated) {
       this.tokens = [{ type: 'constant', value: 'Ans' }];
-      this.result = null;
-      this.justCalculated = false;
+      this.result = null; this.justCalculated = false; this.cursorPos = 1;
     }
-    this.tokens.push({ type: 'operator', value: '^' });
-    this.tokens.push({ type: 'number', value: '-1' });
+    this.tokens.splice(this.cursorPos, 0, { type: 'operator', value: '^' }, { type: 'number', value: '-1' });
+    this.cursorPos += 2;
     this._notify();
   }
 
   _inputExponent() {
     if (this.justCalculated) {
       this.tokens = [{ type: 'constant', value: 'Ans' }];
-      this.result = null;
-      this.justCalculated = false;
+      this.result = null; this.justCalculated = false; this.cursorPos = 1;
     }
-    this.tokens.push({ type: 'operator', value: '*' });
-    this.tokens.push({ type: 'number', value: '10' });
-    this.tokens.push({ type: 'operator', value: '^' });
+    this.tokens.splice(this.cursorPos, 0,
+      { type: 'operator', value: '*' },
+      { type: 'number', value: '10' },
+      { type: 'operator', value: '^' }
+    );
+    this.cursorPos += 3;
     this._notify();
   }
 
   _inputPostfix(name) {
     if (this.justCalculated) {
       this.tokens = [{ type: 'constant', value: 'Ans' }];
-      this.result = null;
-      this.justCalculated = false;
+      this.result = null; this.justCalculated = false; this.cursorPos = 1;
     }
-    const last = this.tokens[this.tokens.length - 1];
-    if (!last) return;
-    const validPrev = last.type === 'number' || last.type === 'rparen' || last.type === 'constant';
+    const prev = this.tokens[this.cursorPos - 1];
+    if (!prev) return;
+    const validPrev = prev.type === 'number' || prev.type === 'rparen' || prev.type === 'constant' || prev.type === 'postfix-function';
     if (!validPrev) return;
-    this.tokens.push({ type: 'postfix-function', value: name });
+    this.tokens.splice(this.cursorPos, 0, { type: 'postfix-function', value: name });
+    this.cursorPos++;
     this._notify();
   }
 
@@ -646,7 +658,8 @@ class Calculator {
 
     // Auto-close open parens
     const toks = [...this.tokens];
-    for (let i = 0; i < this.openParenCount; i++) toks.push({ type: 'rparen' });
+    const openCount = this._countOpenParens();
+    for (let i = 0; i < openCount; i++) toks.push({ type: 'rparen' });
 
     try {
       const value  = Evaluator.evaluate(toks, this.angleMode, this.ans);
@@ -660,6 +673,7 @@ class Calculator {
       this.rawValue       = value;
       this.error          = null;
       this.openParenCount = 0;
+      this.cursorPos      = this.tokens.length;
       this.justCalculated = true;
     } catch (e) {
       this.error    = (e instanceof CalcError) ? e.type : 'SYNTAX ERROR';
@@ -675,6 +689,7 @@ class Calculator {
     this.rawValue       = null;
     this.error          = null;
     this.openParenCount = 0;
+    this.cursorPos      = 0;
     this.justCalculated = false;
     this.historyIndex   = -1;
     this._notify();
@@ -683,25 +698,24 @@ class Calculator {
   _delete() {
     if (this.error) { this.error = null; this._notify(); return; }
     if (this.justCalculated) { this.clear(); return; }
-    if (!this.tokens.length) return;
+    if (this.cursorPos === 0) return;
 
-    const last = this.tokens[this.tokens.length - 1];
+    const prev = this.tokens[this.cursorPos - 1];
 
-    if (last.type === 'number' && last.value.length > 1) {
-      last.value = last.value.slice(0, -1);
-    } else {
-      if (last.type === 'lparen') {
-        this.openParenCount--;
-        this.tokens.pop();
-        // Also remove a preceding function token
-        const prev = this.tokens[this.tokens.length - 1];
-        if (prev && prev.type === 'function') this.tokens.pop();
-      } else if (last.type === 'rparen') {
-        this.openParenCount++;
-        this.tokens.pop();
+    if (prev.type === 'number' && prev.value.length > 1) {
+      prev.value = prev.value.slice(0, -1);
+    } else if (prev.type === 'lparen') {
+      const prevPrev = this.tokens[this.cursorPos - 2];
+      if (prevPrev && prevPrev.type === 'function') {
+        this.tokens.splice(this.cursorPos - 2, 2);
+        this.cursorPos -= 2;
       } else {
-        this.tokens.pop();
+        this.tokens.splice(this.cursorPos - 1, 1);
+        this.cursorPos--;
       }
+    } else {
+      this.tokens.splice(this.cursorPos - 1, 1);
+      this.cursorPos--;
     }
     this._notify();
   }
@@ -753,10 +767,28 @@ class Calculator {
       this.result   = entry.result;
     }
 
-    this.openParenCount = this.tokens.filter(t => t.type === 'lparen').length
-                        - this.tokens.filter(t => t.type === 'rparen').length;
+    this.openParenCount = this._countOpenParens();
+    this.cursorPos      = this.tokens.length;
     this.justCalculated = false;
     this._notify();
+  }
+
+  // ----- Cursor -----
+
+  _cursorLeft() {
+    if (this.justCalculated) return;
+    if (this.cursorPos > 0) { this.cursorPos--; this._notify(); }
+  }
+
+  _cursorRight() {
+    if (this.justCalculated) return;
+    if (this.cursorPos < this.tokens.length) { this.cursorPos++; this._notify(); }
+  }
+
+  _countOpenParens() {
+    return this.tokens.reduce(
+      (n, t) => t.type === 'lparen' ? n + 1 : t.type === 'rparen' ? n - 1 : n, 0
+    );
   }
 
   // ----- Notification -----
@@ -806,7 +838,8 @@ class DisplayManager {
   }
 
   _renderExpression(calc) {
-    this.els.previous.innerHTML = this._tokensToStringHTML(calc.tokens);
+    const showCursor = !calc.justCalculated && !calc.error && !calc.isOff;
+    this.els.previous.innerHTML = this._tokensToStringHTML(calc.tokens, showCursor ? calc.cursorPos : -1);
   }
 
   _renderResult(calc) {
@@ -834,9 +867,13 @@ class DisplayManager {
                    : '0';
   }
 
-  // Like _tokensToString but outputs HTML, rendering frac/sqrt/cbrt/^ specially
-  _tokensToStringHTML(tokens) {
-    const e = Evaluator._esc;
+  // Like _tokensToString but outputs HTML, rendering frac/sqrt/cbrt/^ specially.
+  // cursorIdx: token index where the blinking cursor should appear (-1 = no cursor).
+  // state: shared mutable object { used: false } so cursor is emitted exactly once.
+  _tokensToStringHTML(tokens, cursorIdx = -1, state = null) {
+    const s   = state || { used: false };
+    const e   = Evaluator._esc;
+    const cur = () => { s.used = true; return '<span class="calc-cursor"></span>'; };
     const parts = [];
     let i = 0;
 
@@ -849,7 +886,14 @@ class DisplayManager {
       return -1;
     };
 
+    // Returns cursorIdx adjusted for a sub-slice starting at offset, or -1 if outside.
+    const innerCursor = (offset, len) => {
+      const rel = cursorIdx - offset;
+      return (rel >= 0 && rel <= len) ? rel : -1;
+    };
+
     while (i < tokens.length) {
+      if (!s.used && i === cursorIdx) parts.push(cur());
       const t  = tokens[i];
       const n1 = tokens[i + 1];
       const n2 = tokens[i + 2];
@@ -878,7 +922,7 @@ class DisplayManager {
         if (n1 && n1.type === 'lparen') {
           const closeIdx = findMatchingRparen(i + 1);
           const endIdx   = closeIdx !== -1 ? closeIdx : tokens.length;
-          parts.push(`<sup>${this._tokensToStringHTML(tokens.slice(i + 2, endIdx))}</sup>`);
+          parts.push(`<sup>${this._tokensToStringHTML(tokens.slice(i + 2, endIdx), innerCursor(i + 2, endIdx - (i + 2)), s)}</sup>`);
           i = endIdx + 1;
           continue;
         } else if (n1 && n1.type === 'unary-minus' && n2 && (n2.type === 'number' || n2.type === 'constant')) {
@@ -886,7 +930,7 @@ class DisplayManager {
           i += 3;
           continue;
         } else if (n1 && (n1.type === 'number' || n1.type === 'constant')) {
-          parts.push(`<sup>${e(n1.value)}</sup>`);
+          parts.push(`<sup>${this._tokensToStringHTML([n1], innerCursor(i + 1, 1), s)}</sup>`);
           i += 2;
           continue;
         }
@@ -901,7 +945,7 @@ class DisplayManager {
         if (n1 && n1.type === 'lparen') {
           const closeIdx = findMatchingRparen(i + 1);
           const endIdx   = closeIdx !== -1 ? closeIdx : tokens.length;
-          const inner    = this._tokensToStringHTML(tokens.slice(i + 2, endIdx));
+          const inner    = this._tokensToStringHTML(tokens.slice(i + 2, endIdx), innerCursor(i + 2, endIdx - (i + 2)), s);
           parts.push(`${sym}<span class="radical-content">${inner || '&nbsp;'}</span>`);
           i = endIdx + 1;
           continue;
@@ -914,6 +958,8 @@ class DisplayManager {
       parts.push(e(this._tokenToText(t)));
       i++;
     }
+
+    if (!s.used && cursorIdx >= tokens.length) parts.push(cur());
     return parts.join('');
   }
 
@@ -944,7 +990,11 @@ class DisplayManager {
       case 'constant':         return t.value;
       case 'unary-minus':      return '−';
       case 'postfix-function':
-        return t.value === 'factorial' ? '!' : t.value;
+        switch (t.value) {
+          case 'factorial': return '!';
+          case 'percent':   return '%';
+          default:          return t.value;
+        }
       default: return '';
     }
   }
@@ -978,6 +1028,7 @@ class DisplayManager {
         case 'postfix-function':
           switch (t.value) {
             case 'factorial': return '!';
+            case 'percent':   return '%';
             default:          return t.value;
           }
         default: return '';
