@@ -62,6 +62,20 @@ function expect(actual) {
       if (actual !== null)
         throw new Error(`expected null, got ${JSON.stringify(actual)}`);
     },
+    toMatch(re) {
+      if (!re.test(String(actual)))
+        throw new Error(`expected ${JSON.stringify(actual)} to match ${re}`);
+    },
+    not: {
+      toMatch(re) {
+        if (re.test(String(actual)))
+          throw new Error(`expected ${JSON.stringify(actual)} NOT to match ${re}`);
+      },
+    },
+    toEqual(expected) {
+      const a = JSON.stringify(actual), e = JSON.stringify(expected);
+      if (a !== e) throw new Error(`expected ${e}, got ${a}`);
+    },
     toThrow(type) {
       if (typeof actual !== 'function') throw new Error('expect(fn).toThrow — value must be a function');
       try { actual(); throw new Error('expected throw, but did not throw'); }
@@ -385,11 +399,19 @@ describe('Calculator — fractions', () => {
     calc.handleKey(undefined,'4'); calc.handleKey('calculate');
     expect(calc.rawValue).toBe(0.5);
   });
-  it('F↔D via 2nd+n/d toggles fracDisplay', () => {
+  it('U n/d via 2nd+n/d toggles fracMixed', () => {
     const calc = new Calculator();
+    expect(calc.fracMixed).toBe(true);
     calc.handleKey('2nd'); calc.handleKey('n/d');
+    expect(calc.fracMixed).toBe(false);
+    calc.handleKey('2nd'); calc.handleKey('n/d');
+    expect(calc.fracMixed).toBe(true);
+  });
+  it('F↔D via 2nd+table toggles fracDisplay', () => {
+    const calc = new Calculator();
+    calc.handleKey('2nd'); calc.handleKey('table');
     expect(calc.fracDisplay).toBe(false);
-    calc.handleKey('2nd'); calc.handleKey('n/d');
+    calc.handleKey('2nd'); calc.handleKey('table');
     expect(calc.fracDisplay).toBe(true);
   });
 });
@@ -472,22 +494,278 @@ describe('Calculator — HYP mode', () => {
 });
 
 // ── Calculator — xth root ─────────────────────────────────────────────────────
+// Usage: type index first, press xroot, then type radicand.
 describe('Calculator — xth root', () => {
-  it('27 xroot 3 = 3 (cube root of 27)', () => {
+  it('3ˣ√27 = 3 (cube root of 27)', () => {
     const calc = new Calculator();
-    calc.handleKey(undefined,'2'); calc.handleKey(undefined,'7');
-    calc.handleKey('2nd'); calc.handleKey('power');  // xroot → inserts ^(1/
+    calc.handleKey(undefined,'3');                   // index
+    calc.handleKey('2nd'); calc.handleKey('power');  // xroot
+    calc.handleKey(undefined,'2'); calc.handleKey(undefined,'7'); // radicand
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(3);
+  });
+  it('4ˣ√16 = 2 (4th root of 16)', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'4');
+    calc.handleKey('2nd'); calc.handleKey('power');
+    calc.handleKey(undefined,'1'); calc.handleKey(undefined,'6');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(2);
+  });
+  it('2ˣ√9 = 3 (square root via xroot)', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'2');
+    calc.handleKey('2nd'); calc.handleKey('power');
+    calc.handleKey(undefined,'9');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(3);
+  });
+  it('cursor placed at 0 after xroot (radicand typed first)', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'3');
+    calc.handleKey('2nd'); calc.handleKey('power');
+    expect(calc.cursorPos).toBe(0);
+  });
+});
+
+// ── Evaluator — hyperbolic functions ─────────────────────────────────────────
+describe('Evaluator — hyperbolic functions', () => {
+  it('sinh(0) = 0',          () => expect(ev([fn_('sinh'),  lp(), n(0), rp()])).toBe(0));
+  it('cosh(0) = 1',          () => expect(ev([fn_('cosh'),  lp(), n(0), rp()])).toBe(1));
+  it('tanh(0) = 0',          () => expect(ev([fn_('tanh'),  lp(), n(0), rp()])).toBe(0));
+  it('asinh(0) = 0',         () => expect(ev([fn_('asinh'), lp(), n(0), rp()])).toBeCloseTo(0));
+  it('acosh(1) = 0',         () => expect(ev([fn_('acosh'), lp(), n(1), rp()])).toBeCloseTo(0));
+  it('atanh(0) = 0',         () => expect(ev([fn_('atanh'), lp(), n(0), rp()])).toBe(0));
+  it('sinh(1) ≈ 1.1752',     () => expect(ev([fn_('sinh'),  lp(), n(1), rp()])).toBeCloseTo(Math.sinh(1)));
+  it('acosh(<1) → DOMAIN',   () => expect(() => ev([fn_('acosh'), lp(), n(0), rp()])).toThrow('DOMAIN ERROR'));
+  it('atanh(1) → DOMAIN',    () => expect(() => ev([fn_('atanh'), lp(), n(1), rp()])).toThrow('DOMAIN ERROR'));
+});
+
+// ── Evaluator — GRAD angle mode ───────────────────────────────────────────────
+describe('Evaluator — GRAD angle mode', () => {
+  it('sin(100 grad) = 1',    () => expect(ev([fn_('sin'), lp(), n(100), rp()], 'GRAD')).toBeCloseTo(1));
+  it('cos(100 grad) = 0',    () => expect(ev([fn_('cos'), lp(), n(100), rp()], 'GRAD')).toBeCloseTo(0));
+  it('asin(1) GRAD = 100',   () => expect(ev([fn_('asin'), lp(), n(1), rp()], 'GRAD')).toBeCloseTo(100));
+});
+
+// ── Evaluator — misc functions ────────────────────────────────────────────────
+describe('Evaluator — misc functions', () => {
+  it('iPart(3.7) = 3',       () => expect(ev([fn_('iPart'), lp(), n(3.7), rp()])).toBe(3));
+  it('iPart(-3.7) = -3',     () => expect(ev([fn_('iPart'), lp(), um(), n(3.7), rp()])).toBe(-3));
+  it('fPart(3.7) ≈ 0.7',     () => expect(ev([fn_('fPart'), lp(), n(3.7), rp()])).toBeCloseTo(0.7));
+  it('min(3,5) = 3',         () => expect(ev([fn_('min'), lp(), n(3), {type:'comma'}, n(5), rp()])).toBe(3));
+  it('max(3,5) = 5',         () => expect(ev([fn_('max'), lp(), n(3), {type:'comma'}, n(5), rp()])).toBe(5));
+  it('gcd(12,8) = 4',        () => expect(ev([fn_('gcd'), lp(), n(12), {type:'comma'}, n(8), rp()])).toBe(4));
+  it('lcm(4,6) = 12',        () => expect(ev([fn_('lcm'), lp(), n(4), {type:'comma'}, n(6), rp()])).toBe(12));
+  it('remainder(7,3) = 1',   () => expect(ev([fn_('remainder'), lp(), n(7), {type:'comma'}, n(3), rp()])).toBe(1));
+  it('round(3.456,2) = 3.46',() => expect(ev([fn_('round'), lp(), n(3.456), {type:'comma'}, n(2), rp()])).toBeCloseTo(3.46));
+  it('nthroot(3,27) = 3',    () => expect(ev([fn_('nthroot'), lp(), n(3), {type:'comma'}, n(27), rp()])).toBeCloseTo(3));
+  it('percent(50) = 0.5',    () => expect(ev([n(50), pf('percent')])).toBe(0.5));
+  it('tan(90°) → DOMAIN',    () => expect(() => ev([fn_('tan'), lp(), n(90), rp()])).toThrow('DOMAIN ERROR'));
+  it('factorial(0) = 1',     () => expect(ev([n(0), pf('factorial')])).toBe(1));
+  it('factorial(69) ok',     () => expect(isFinite(ev([n(69), pf('factorial')]))).toBe(true));
+  it('factorial(70) → DOMAIN',() => expect(() => ev([n(70), pf('factorial')])).toThrow('DOMAIN ERROR'));
+  it('remainder div by 0',   () => expect(() => ev([fn_('remainder'), lp(), n(1), {type:'comma'}, n(0), rp()])).toThrow('DIVIDE BY 0'));
+  it('Ans token uses passed ans', () => expect(ev([con('Ans')], 'DEG', '7')).toBe(7));
+  it('-(-5) = 5',            () => expect(ev([um(), lp(), um(), n(5), rp()])).toBe(5));
+});
+
+// ── Evaluator — formatResult edge cases ──────────────────────────────────────
+describe('Evaluator — formatResult edge cases', () => {
+  it('1e10 → scientific',    () => expect(Evaluator.formatResult(1e10)).toMatch(/E/));
+  it('9.9999e9 → decimal',   () => expect(Evaluator.formatResult(9.999999999e9)).not.toMatch(/E/));
+  it('1e-4 boundary decimal',() => expect(Evaluator.formatResult(1e-4)).toBe('0.0001'));
+  it('9.9e-5 → scientific',  () => expect(Evaluator.formatResult(9.9e-5)).toMatch(/E/));
+  it('toPrecision 10 sig figs', () => expect(Evaluator.formatResult(1/3)).toBe('0.3333333333'));
+});
+
+// ── Calculator — cursor navigation ───────────────────────────────────────────
+describe('Calculator — cursor navigation', () => {
+  it('left moves cursor back one token', () => {
+    const calc = new Calculator();
+    // 3 separate tokens: 1 + 2  (cursorPos = 3)
+    calc.handleKey(undefined,'1'); calc.handleKey('addition'); calc.handleKey(undefined,'2');
+    calc.handleKey('left');
+    expect(calc.cursorPos).toBe(2);
+  });
+  it('right moves cursor forward one token', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'1'); calc.handleKey('addition'); calc.handleKey(undefined,'2');
+    calc.handleKey('left'); calc.handleKey('right');
+    expect(calc.cursorPos).toBe(3);
+  });
+  it('left does not go below 0', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5'); calc.handleKey('left'); calc.handleKey('left');
+    expect(calc.cursorPos).toBe(0);
+  });
+  it('right does not exceed token count', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5'); calc.handleKey('right'); calc.handleKey('right');
+    expect(calc.cursorPos).toBe(1);
+  });
+  it('digit inserted at cursor mid-expression', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'1'); calc.handleKey('addition'); calc.handleKey(undefined,'3');
+    calc.handleKey('left'); calc.handleKey('left'); // cursor before +
+    calc.handleKey(undefined,'2');                  // insert 2 before +
+    const vals = calc.tokens.filter(t => t.type === 'number').map(t => t.value);
+    expect(vals[0]).toBe('12');
+  });
+});
+
+// ── Calculator — delete edge cases ────────────────────────────────────────────
+describe('Calculator — delete edge cases', () => {
+  it('delete on error clears error', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'1'); calc.handleKey('division');
+    calc.handleKey(undefined,'0'); calc.handleKey('calculate');
+    calc.handleKey('delete');
+    expect(calc.error).toBeNull();
+  });
+  it('delete after justCalculated clears expression', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5'); calc.handleKey('calculate');
+    calc.handleKey('delete');
+    expect(calc.tokens.length).toBe(0);
+    expect(calc.result).toBeNull();
+  });
+  it('delete removes function+lparen together', () => {
+    const calc = new Calculator();
+    calc.handleKey('sin');        // inserts sin( — cursor at 2
+    calc.handleKey('delete');     // should remove both sin and (
+    expect(calc.tokens.length).toBe(0);
+  });
+  it('delete at cursorPos=0 does nothing', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5'); calc.handleKey('left');
+    calc.handleKey('delete');
+    expect(calc.tokens[0].value).toBe('5');
+  });
+});
+
+// ── Calculator — nPr / nCr regression ────────────────────────────────────────
+describe('Calculator — nPr / nCr (regression)', () => {
+  it('5 nPr 2 = 20 via _inputBinaryFunc', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5');
+    calc._inputBinaryFunc('nPr');
+    calc.handleKey(undefined,'2');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBe(20);
+  });
+  it('5 nCr 2 = 10 via _inputBinaryFunc', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5');
+    calc._inputBinaryFunc('nCr');
+    calc.handleKey(undefined,'2');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBe(10);
+  });
+  it('nPr without preceding value falls back to func(', () => {
+    const calc = new Calculator();
+    calc._inputBinaryFunc('nPr');
+    expect(calc.tokens[0].type).toBe('function');
+    expect(calc.tokens[0].value).toBe('nPr');
+  });
+  it('nCr(10,3) = 120', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'1'); calc.handleKey(undefined,'0');
+    calc._inputBinaryFunc('nCr');
     calc.handleKey(undefined,'3');
     calc.handleKey('calculate');
-    expect(calc.rawValue).toBeCloseTo(3, 10);
+    expect(calc.rawValue).toBe(120);
   });
-  it('16 xroot 4 = 2 (4th root of 16)', () => {
+});
+
+// ── Calculator — memory ───────────────────────────────────────────────────────
+describe('Calculator — memory', () => {
+  it('STO stores rawValue in variable', () => {
     const calc = new Calculator();
-    calc.handleKey(undefined,'1'); calc.handleKey(undefined,'6');
-    calc.handleKey('2nd'); calc.handleKey('power');
-    calc.handleKey(undefined,'4');
+    calc.handleKey(undefined,'7'); calc.handleKey('calculate');
+    calc._openStoMenu();
+    calc.menuState.items[0].action(); // store to x
+    expect(calc.memory.x).toBe(7);
+  });
+  it('RCL recalls variable into expression', () => {
+    const calc = new Calculator();
+    calc.memory.y = 42;
+    calc._openRclMenu();
+    calc.menuState.items[1].action(); // recall y — inserts constant token
+    expect(calc.tokens.some(t => t.value === 'y')).toBe(true);
+  });
+  it('stored value usable in calculation', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'6'); calc.handleKey('calculate');
+    calc._openStoMenu();
+    calc.menuState.items[2].action(); // store to z
+    calc.handleKey('clear');
+    calc.memory.z; // should be 6
+    calc._openRclMenu();
+    calc.menuState.items[2].action(); // recall z
     calc.handleKey('calculate');
-    expect(calc.rawValue).toBeCloseTo(2, 10);
+    expect(calc.rawValue).toBe(6);
+  });
+});
+
+// ── Calculator — operator edge cases ─────────────────────────────────────────
+describe('Calculator — operator edge cases', () => {
+  it('consecutive operators: last wins', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5');
+    calc.handleKey('addition'); calc.handleKey('subtraction');
+    expect(calc.tokens[1].value).toBe('-');
+  });
+  it('operator on empty expression inserts unary-minus for -', () => {
+    const calc = new Calculator();
+    calc.handleKey('subtraction');
+    expect(calc.tokens[0].type).toBe('unary-minus');
+  });
+  it('operator on empty (non-minus) does nothing', () => {
+    const calc = new Calculator();
+    calc.handleKey('addition');
+    expect(calc.tokens.length).toBe(0);
+  });
+  it('operator after justCalculated uses Ans', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5'); calc.handleKey('calculate');
+    calc.handleKey('addition');
+    expect(calc.tokens[0].value).toBe('Ans');
+  });
+  it('negative after justCalculated uses Ans', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'3'); calc.handleKey('calculate');
+    calc.handleKey('negative');
+    expect(calc.tokens[1].value).toBe('Ans');
+  });
+  it('exponent x10^n inserts ×10^ tokens', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'3'); calc.handleKey('exponent');
+    const ops = calc.tokens.filter(t => t.type === 'operator').map(t => t.value);
+    expect(ops).toEqual(['*', '^']);
+  });
+  it('x^-1 inserts ^-1 tokens', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'4'); calc.handleKey('negative-exponent');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(0.25);
+  });
+});
+
+// ── Calculator — percent / toPercent ─────────────────────────────────────────
+describe('Calculator — percent / toPercent', () => {
+  it('50% postfix = 0.5 rawValue', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5'); calc.handleKey(undefined,'0');
+    calc.handleKey('2nd'); calc.handleKey('open-paren'); // percent
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(0.5);
+  });
+  it('toPercent (2nd+)) multiplies result by 100', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'5'); calc.handleKey('calculate');
+    calc.handleKey('2nd'); calc.handleKey('close-paren'); // toPercent
+    expect(calc.rawValue).toBe(500);
   });
 });
 

@@ -23,7 +23,7 @@ class Evaluator {
     '^':    { precedence: 4, assoc: 'R' },
   };
   static UNARY_PREC = 3; // between * (2) and ^ (4), right-associative
-  static TWO_ARG_FUNCS = new Set(['nthroot', 'nPr', 'nCr']);
+  static TWO_ARG_FUNCS = new Set(['nthroot', 'nPr', 'nCr', 'round', 'min', 'max', 'gcd', 'lcm', 'remainder', 'randint']);
 
   // ----- Angle conversion -----
 
@@ -128,6 +128,26 @@ class Evaluator {
       case 'nPr':      return Evaluator._nPr(a, b);
       case 'nCr':      return Evaluator._nCr(a, b);
       case 'percent':  return a / 100;
+      case 'iPart':    return Math.trunc(a);
+      case 'fPart':    return a - Math.trunc(a);
+      case 'round':    return Math.round(a * Math.pow(10, b)) / Math.pow(10, b);
+      case 'min':      return Math.min(a, b);
+      case 'max':      return Math.max(a, b);
+      case 'gcd': {
+        const ga = Math.round(Math.abs(a)), gb = Math.round(Math.abs(b));
+        return Evaluator._gcd(ga, gb);
+      }
+      case 'lcm': {
+        const la = Math.round(Math.abs(a)), lb = Math.round(Math.abs(b));
+        const g = Evaluator._gcd(la, lb);
+        return g === 0 ? 0 : (la * lb) / g;
+      }
+      case 'remainder':
+        if (b === 0) throw new CalcError('DIVIDE BY 0');
+        return a - Math.trunc(a / b) * b;
+      case 'randint':
+        if (!Number.isInteger(a) || !Number.isInteger(b) || a > b) throw new CalcError('DOMAIN ERROR');
+        return Math.floor(Math.random() * (b - a + 1)) + a;
       default:
         throw new CalcError('SYNTAX ERROR');
     }
@@ -218,7 +238,7 @@ class Evaluator {
 
   // ----- RPN Evaluation -----
 
-  static _evalRPN(rpn, mode, ans) {
+  static _evalRPN(rpn, mode, ans, memory = {}) {
     const stack = [];
 
     for (const t of rpn) {
@@ -231,7 +251,9 @@ class Evaluator {
           case 'π':   stack.push(Math.PI); break;
           case 'e':   stack.push(Math.E);  break;
           case 'Ans': stack.push(parseFloat(ans) || 0); break;
-          default:    throw new CalcError('SYNTAX ERROR');
+          default:
+            if (t.value in memory) { stack.push(memory[t.value]); break; }
+            throw new CalcError('SYNTAX ERROR');
         }
       } else if (t.type === 'operator') {
         if (stack.length < 2) throw new CalcError('SYNTAX ERROR');
@@ -261,11 +283,11 @@ class Evaluator {
 
   // ----- Public API -----
 
-  static evaluate(tokens, angleMode, ansValue) {
+  static evaluate(tokens, angleMode, ansValue, memory = {}) {
     if (!tokens || !tokens.length) throw new CalcError('SYNTAX ERROR');
     const pre = Evaluator._preprocess(tokens);
     const rpn = Evaluator._toRPN(pre);
-    const result = Evaluator._evalRPN(rpn, angleMode, ansValue);
+    const result = Evaluator._evalRPN(rpn, angleMode, ansValue, memory);
     if (!isFinite(result)) throw new CalcError('OVERFLOW');
     if (isNaN(result))     throw new CalcError('DOMAIN ERROR');
     return result;
@@ -338,6 +360,16 @@ class Evaluator {
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  static toDMS(degrees) {
+    const sign = degrees < 0 ? -1 : 1;
+    const d = Math.abs(degrees);
+    const deg = Math.floor(d);
+    const minF = (d - deg) * 60;
+    const min = Math.floor(minF);
+    const sec = parseFloat(((minF - min) * 60).toPrecision(8));
+    return (sign < 0 ? '-' : '') + deg + '°' + min + "'" + sec + '"';
+  }
+
   static formatFractionHTML({ whole, n, d, sign }) {
     const e   = Evaluator._esc;
     const neg = sign < 0 ? '-' : '';
@@ -360,8 +392,15 @@ const SECOND_MAP = {
   ln:            'exp',
   log:           'pow10',
   sqrt:          'cbrt',
-  'n/d':         'F↔D',
-  'close-paren': 'percent',
+  'n/d':         'und',
+  'table':       'F↔D',
+  'open-paren':  'percent',
+  'close-paren': 'topercent',
+  'negative':    'ans',
+  'probability': 'angle-menu',
+  'delete':      'ins',
+  'data':        'rcl',
+  'decimal':     'comma',
   pi:            'hyp',
   power:         'xroot',
 };
@@ -384,6 +423,9 @@ class Calculator {
     this.rawValue       = null;
     this.cursorPos      = 0;
     this.fracDisplay    = true;
+    this.fracMixed      = true;
+    this.dmsMode        = false;
+    this.menuState      = null;
     this.displayManager = null;
     this.secondScreen   = null;
   }
@@ -392,6 +434,8 @@ class Calculator {
 
   handleKey(action, raw) {
     if (this.isOff && action !== 'on') return;
+
+    if (this.menuState) { this._handleMenuKey(action, raw); return; }
 
     if (!action) {
       const d = (raw || '').trim();
@@ -437,6 +481,14 @@ class Calculator {
       case 'forward':          this._cursorLeft();                  break;
       case 'backward':         this._cursorRight();                 break;
       case 'percent':          this._inputPostfix('percent');       break;
+      case 'topercent':        this._toPercent();                   break;
+      case 'ans':              this._inputConstant('Ans');          break;
+      case 'und':              this._toggleFracMixed();             break;
+      case 'ins':              /* INS not yet implemented */        break;
+      case 'comma':            this._inputComma();                  break;
+      case 'data':             this._openStoMenu();                 break;
+      case 'rcl':              this._openRclMenu();                 break;
+      case 'angle-menu':       this._openAngleMenu();               break;
       case 'addition':         this._inputOperator('+');            break;
       case 'subtraction':      this._inputOperator('-');            break;
       case 'multiplication':   this._inputOperator('*');            break;
@@ -463,7 +515,7 @@ class Calculator {
       case 'sqrt':             this._inputFunction('sqrt');         break;
       case 'cbrt':             this._inputFunction('cbrt');         break;
       case 'pi':               this._inputConstant('π');            break;
-      case 'probability':      this._inputPostfix('factorial');     break;
+      case 'probability':      this._openPrbMenu();                 break;
       case 'F↔D':             this._toggleFracDisplay();           break;
       case 'hyp':              this._toggleHyp();                  break;
       case 'xroot':            this._inputXRoot();                  break;
@@ -680,18 +732,33 @@ class Calculator {
 
   _inputXRoot() {
     if (this.justCalculated) {
-      this.tokens = [{ type: 'constant', value: 'Ans' }];
-      this.result = null; this.justCalculated = false; this.cursorPos = 1;
+      // Ans becomes the radicand; cursor placed inside (1/ ) so user types the index.
+      this.tokens = [
+        { type: 'constant', value: 'Ans' },
+        { type: 'operator', value: '^' },
+        { type: 'lparen' },
+        { type: 'number',   value: '1' },
+        { type: 'operator', value: '/' },
+        { type: 'rparen' },
+      ];
+      this.result = null; this.justCalculated = false; this.cursorPos = 5;
+      this._notify();
+      return;
     }
-    // Insert ^(1/ at cursor; user types the root index, auto-close on =
-    this.tokens.splice(this.cursorPos, 0,
+    // Take the index (already typed before cursor), restructure as radicand^(1/index)
+    // Cursor moves to 0 so the user types the radicand first.
+    const indexTokens = this.tokens.splice(0, this.cursorPos);
+    const afterTokens  = this.tokens.splice(0);
+    this.tokens = [
+      ...afterTokens,
       { type: 'operator', value: '^' },
-      { type: 'lparen',   value: '(' },
+      { type: 'lparen' },
       { type: 'number',   value: '1' },
       { type: 'operator', value: '/' },
-    );
-    this.cursorPos += 4;
-    this.openParenCount++;
+      ...indexTokens,
+      { type: 'rparen' },
+    ];
+    this.cursorPos = 0;
     this._notify();
   }
 
@@ -705,7 +772,7 @@ class Calculator {
     for (let i = 0; i < openCount; i++) toks.push({ type: 'rparen' });
 
     try {
-      const value  = Evaluator.evaluate(toks, this.angleMode, this.ans);
+      const value  = Evaluator.evaluate(toks, this.angleMode, this.ans, this.memory);
       const result = Evaluator.formatResult(value);
 
       this.history.push({ tokens: JSON.parse(JSON.stringify(this.tokens)), result });
@@ -843,6 +910,144 @@ class Calculator {
     );
   }
 
+  // ----- New features -----
+
+  _toggleFracMixed() {
+    this.fracMixed = !this.fracMixed;
+    this._notify();
+  }
+
+  _toPercent() {
+    const val = this.rawValue !== null ? this.rawValue : parseFloat(this.result);
+    if (isNaN(val) || val === null) return;
+    const pct = val * 100;
+    this.rawValue = pct;
+    this.result   = Evaluator.formatResult(pct);
+    this.justCalculated = true;
+    this._notify();
+  }
+
+  _inputComma() {
+    if (this.error) this.clear();
+    this.tokens.splice(this.cursorPos, 0, { type: 'comma' });
+    this.cursorPos++;
+    this._notify();
+  }
+
+  // For two-arg functions where the preceding expression is the first argument (nPr, nCr).
+  _inputBinaryFunc(name) {
+    if (this.error) this.clear();
+    if (this.justCalculated) {
+      this.tokens = [{ type: 'constant', value: 'Ans' }];
+      this.result = null; this.justCalculated = false; this.cursorPos = 1;
+    }
+    if (this.cursorPos === 0) {
+      this._inputFunction(name);
+      return;
+    }
+    const before = this.tokens.splice(0, this.cursorPos);
+    const after  = this.tokens.splice(0);
+    this.tokens = [
+      { type: 'function', value: name },
+      { type: 'lparen' },
+      ...before,
+      { type: 'comma' },
+      ...after,
+    ];
+    this.cursorPos = 2 + before.length + 1;
+    this._notify();
+  }
+
+  _openPrbMenu() {
+    this.menuState = {
+      type: 'prb',
+      title: 'PRB',
+      items: [
+        { label: 'nPr',      action: () => this._inputBinaryFunc('nPr') },
+        { label: 'nCr',      action: () => this._inputBinaryFunc('nCr') },
+        { label: '!',        action: () => this._inputPostfix('factorial') },
+        { label: 'randInt(', action: () => this._inputFunction('randint') },
+      ],
+      selected: 0,
+    };
+    this._notify();
+  }
+
+  _openStoMenu() {
+    const vars = ['x', 'y', 'z', 't', 'a', 'b', 'c'];
+    this.menuState = {
+      type: 'sto',
+      title: 'STO→',
+      items: vars.map(v => ({
+        label: v,
+        action: () => {
+          const val = this.rawValue !== null ? this.rawValue : parseFloat(this.result) || 0;
+          this.memory[v] = val;
+        },
+      })),
+      selected: 0,
+    };
+    this._notify();
+  }
+
+  _openRclMenu() {
+    const vars = ['x', 'y', 'z', 't', 'a', 'b', 'c'];
+    this.menuState = {
+      type: 'rcl',
+      title: 'RCL',
+      items: vars.map(v => ({
+        label: v,
+        action: () => this._inputConstant(v),
+      })),
+      selected: 0,
+    };
+    this._notify();
+  }
+
+  _openAngleMenu() {
+    this.menuState = {
+      type: 'angle',
+      title: 'ANGLE',
+      items: [
+        { label: '°',   action: () => {} },
+        { label: "'",   action: () => {} },
+        { label: '"',   action: () => {} },
+        { label: 'DMS', action: () => { this.dmsMode = true; this._notify(); } },
+        { label: 'r',   action: () => {} },
+        { label: 'g',   action: () => {} },
+      ],
+      selected: 0,
+    };
+    this._notify();
+  }
+
+  _handleMenuKey(action, raw) {
+    const menu = this.menuState;
+    // Number key 1-N: select and execute
+    if (!action && raw) {
+      const idx = parseInt(raw) - 1;
+      if (idx >= 0 && idx < menu.items.length) {
+        this.menuState = null;
+        menu.items[idx].action();
+        this._notify();
+        return;
+      }
+    }
+    if (action === 'up')   { menu.selected = Math.max(0, menu.selected - 1); this._notify(); return; }
+    if (action === 'down') { menu.selected = Math.min(menu.items.length - 1, menu.selected + 1); this._notify(); return; }
+    if (action === 'calculate') {
+      const item = menu.items[menu.selected];
+      this.menuState = null;
+      item.action();
+      this._notify();
+      return;
+    }
+    // Any other key: close menu, then process key
+    this.menuState = null;
+    this._notify();
+    if (action !== 'clear') this.handleKey(action, raw);
+  }
+
   // ----- Notification -----
 
   _notify() {
@@ -884,6 +1089,7 @@ class DisplayManager {
       { label: 'GRAD', on: calc.angleMode === 'GRAD' },
       { label: '2nd',  on: calc.secondActive },
       { label: 'HYP',  on: calc.hypActive },
+      { label: 'U n/d',on: !calc.fracMixed },
     ];
     this.els.indicators.innerHTML = badges
       .map(b => `<span class="indicator-badge${b.on ? '' : ' inactive'}">${b.label}</span>`)
@@ -891,6 +1097,15 @@ class DisplayManager {
   }
 
   _renderExpression(calc) {
+    if (calc.menuState) {
+      const m = calc.menuState;
+      const html = `<span class="menu-title">${m.title}</span> ` +
+        m.items.map((item, i) =>
+          `<span class="menu-item${i === m.selected ? ' menu-selected' : ''}">${i + 1}:${item.label}</span>`
+        ).join(' ');
+      this.els.previous.innerHTML = html;
+      return;
+    }
     const showCursor = !calc.justCalculated && !calc.error && !calc.isOff;
     this.els.previous.innerHTML = this._tokensToStringHTML(calc.tokens, showCursor ? calc.cursorPos : -1);
   }
@@ -904,10 +1119,20 @@ class DisplayManager {
     }
     el.classList.remove('error');
     if (calc.result !== null) {
+      if (calc.dmsMode && calc.rawValue !== null) {
+        el.textContent = Evaluator.toDMS(calc.rawValue);
+        calc.dmsMode = false;
+        return;
+      }
       if (calc.fracDisplay && calc.rawValue !== null) {
         const frac = Evaluator.toFraction(calc.rawValue);
         if (frac && frac.d > 1) {
-          el.innerHTML = Evaluator.formatFractionHTML(frac);
+          if (!calc.fracMixed && frac.whole !== 0) {
+            const impN = frac.whole * frac.d + frac.n;
+            el.innerHTML = Evaluator.formatFractionHTML({ whole: 0, n: impN, d: frac.d, sign: frac.sign });
+          } else {
+            el.innerHTML = Evaluator.formatFractionHTML(frac);
+          }
           return;
         }
       }
@@ -939,6 +1164,32 @@ class DisplayManager {
       return -1;
     };
 
+    // Returns the last token index (inclusive) of the rendering group starting at startIdx.
+    // A group is: a single number/constant, a function call func(...), a parenthesised expression,
+    // or a unary-minus followed by one of those.
+    const groupEndIdx = (startIdx) => {
+      const gt = tokens[startIdx];
+      if (!gt) return startIdx - 1;
+      if (gt.type === 'number' || gt.type === 'constant') return startIdx;
+      if (gt.type === 'unary-minus') {
+        const r = groupEndIdx(startIdx + 1);
+        return r >= startIdx + 1 ? r : startIdx;
+      }
+      if (gt.type === 'function') {
+        const gn = tokens[startIdx + 1];
+        if (gn && gn.type === 'lparen') {
+          const close = findMatchingRparen(startIdx + 1);
+          return close !== -1 ? close : tokens.length - 1;
+        }
+        return startIdx;
+      }
+      if (gt.type === 'lparen') {
+        const close = findMatchingRparen(startIdx);
+        return close !== -1 ? close : tokens.length - 1;
+      }
+      return startIdx;
+    };
+
     // Returns cursorIdx adjusted for a sub-slice starting at offset, or -1 if outside.
     const innerCursor = (offset, len) => {
       const rel = cursorIdx - offset;
@@ -951,17 +1202,17 @@ class DisplayManager {
       const n1 = tokens[i + 1];
       const n2 = tokens[i + 2];
 
-      // Stacked fraction: simple_val frac simple_val
+      // Stacked fraction: simple_val frac <group>
       if ((t.type === 'number' || t.type === 'constant') &&
           n1 && n1.type === 'operator' && n1.value === 'frac' &&
-          n2 && (n2.type === 'number' || n2.type === 'constant')) {
-        // Cursor inside the fraction: emit it before numerator, between, or before denominator
-        const numHtml = this._tokensToStringHTML([t],  innerCursor(i,     1), s);
-        const denHtml = this._tokensToStringHTML([n2], innerCursor(i + 2, 1), s);
-        // Cursor at the frac-operator position (i+1): emit between num and den spans
-        const midCur  = (!s.used && cursorIdx === i + 1) ? cur() : '';
+          n2) {
+        const denEnd   = groupEndIdx(i + 2);
+        const denSlice = tokens.slice(i + 2, denEnd + 1);
+        const numHtml  = this._tokensToStringHTML([t], innerCursor(i, 1), s);
+        const denHtml  = this._tokensToStringHTML(denSlice, innerCursor(i + 2, denSlice.length), s);
+        const midCur   = (!s.used && cursorIdx === i + 1) ? cur() : '';
         parts.push(`<span class="frac-v"><span class="frac-n">${numHtml}</span>${midCur}<span class="frac-d">${denHtml}</span></span>`);
-        i += 3;
+        i = denEnd + 1;
         continue;
       }
 
@@ -990,6 +1241,10 @@ class DisplayManager {
           parts.push(`<sup>${this._tokensToStringHTML([n1], innerCursor(i + 1, 1), s)}</sup>`);
           i += 2;
           continue;
+        } else if (!n1 && !s.used && cursorIdx === i + 1) {
+          parts.push(`<sup>${cur()}</sup>`);
+          i++;
+          continue;
         }
         parts.push('^');
         i++;
@@ -1008,6 +1263,21 @@ class DisplayManager {
           continue;
         }
         parts.push(sym);
+        i++;
+        continue;
+      }
+
+      // pow10: render argument as superscript  10²
+      if (t.type === 'function' && t.value === 'pow10') {
+        if (n1 && n1.type === 'lparen') {
+          const closeIdx = findMatchingRparen(i + 1);
+          const endIdx   = closeIdx !== -1 ? closeIdx : tokens.length;
+          const inner    = this._tokensToStringHTML(tokens.slice(i + 2, endIdx), innerCursor(i + 2, endIdx - (i + 2)), s);
+          parts.push(`10<sup>${inner || '&nbsp;'}</sup>`);
+          i = endIdx + 1;
+          continue;
+        }
+        parts.push('10^');
         i++;
         continue;
       }
@@ -1109,7 +1379,7 @@ class SecondScreen {
     this._initToggle();
   }
 
-  show()   { this.panel.classList.remove('hidden'); this.visible = true;  }
+  show()   { this.panel.classList.remove('hidden'); this.visible = true; this.update(); }
   hide()   { this.panel.classList.add('hidden');    this.visible = false; }
   toggle() { this.visible ? this.hide() : this.show(); }
 
