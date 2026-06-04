@@ -860,7 +860,7 @@ class DisplayManager {
         i++;
         continue;
       }
-      parts.push(this._tokenToText(t));
+      parts.push(e(this._tokenToText(t)));
       i++;
     }
     return parts.join('');
