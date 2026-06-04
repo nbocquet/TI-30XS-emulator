@@ -713,6 +713,15 @@ class Calculator {
         this.tokens.splice(this.cursorPos - 1, 1);
         this.cursorPos--;
       }
+    } else if (prev.type === 'function') {
+      // Cursor is between function and its lparen — remove both together
+      const nextTok = this.tokens[this.cursorPos];
+      if (nextTok && nextTok.type === 'lparen') {
+        this.tokens.splice(this.cursorPos - 1, 2);
+      } else {
+        this.tokens.splice(this.cursorPos - 1, 1);
+      }
+      this.cursorPos--;
     } else {
       this.tokens.splice(this.cursorPos - 1, 1);
       this.cursorPos--;
@@ -902,10 +911,12 @@ class DisplayManager {
       if ((t.type === 'number' || t.type === 'constant') &&
           n1 && n1.type === 'operator' && n1.value === 'frac' &&
           n2 && (n2.type === 'number' || n2.type === 'constant')) {
-        parts.push(
-          `<span class="frac-v"><span class="frac-n">${e(t.value)}</span>` +
-          `<span class="frac-d">${e(n2.value)}</span></span>`
-        );
+        // Cursor inside the fraction: emit it before numerator, between, or before denominator
+        const numHtml = this._tokensToStringHTML([t],  innerCursor(i,     1), s);
+        const denHtml = this._tokensToStringHTML([n2], innerCursor(i + 2, 1), s);
+        // Cursor at the frac-operator position (i+1): emit between num and den spans
+        const midCur  = (!s.used && cursorIdx === i + 1) ? cur() : '';
+        parts.push(`<span class="frac-v"><span class="frac-n">${numHtml}</span>${midCur}<span class="frac-d">${denHtml}</span></span>`);
         i += 3;
         continue;
       }
@@ -926,7 +937,9 @@ class DisplayManager {
           i = endIdx + 1;
           continue;
         } else if (n1 && n1.type === 'unary-minus' && n2 && (n2.type === 'number' || n2.type === 'constant')) {
-          parts.push(`<sup>−${e(n2.value)}</sup>`);
+          const minCur = (!s.used && cursorIdx === i + 1) ? cur() : '';
+          const numHtml = this._tokensToStringHTML([n2], innerCursor(i + 2, 1), s);
+          parts.push(`<sup>${minCur}−${numHtml}</sup>`);
           i += 3;
           continue;
         } else if (n1 && (n1.type === 'number' || n1.type === 'constant')) {
