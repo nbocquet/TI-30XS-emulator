@@ -331,6 +331,21 @@ class Evaluator {
     if (whole === 0) return neg + n + '/' + d;
     return neg + whole + ' ' + n + '/' + d;
   }
+
+  static _esc(s) {
+    return String(s).replace(/[&<>"']/g, c =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  static formatFractionHTML({ whole, n, d, sign }) {
+    const e   = Evaluator._esc;
+    const neg = sign < 0 ? '-' : '';
+    const fv  = (a, b) =>
+      `<span class="frac-v"><span class="frac-n">${e(a)}</span><span class="frac-d">${e(b)}</span></span>`;
+    if (n === 0) return neg + e(whole);
+    if (whole === 0) return neg + fv(n, d);
+    return neg + e(whole) + fv(n, d);
+  }
 }
 
 // ============================================================
@@ -791,7 +806,7 @@ class DisplayManager {
   }
 
   _renderExpression(calc) {
-    this.els.previous.textContent = this._tokensToString(calc.tokens);
+    this.els.previous.innerHTML = this._tokensToStringHTML(calc.tokens);
   }
 
   _renderResult(calc) {
@@ -806,7 +821,7 @@ class DisplayManager {
       if (calc.fracDisplay && calc.rawValue !== null) {
         const frac = Evaluator.toFraction(calc.rawValue);
         if (frac && frac.d > 1) {
-          el.textContent = Evaluator.formatFraction(frac);
+          el.innerHTML = Evaluator.formatFractionHTML(frac);
           return;
         }
       }
@@ -817,6 +832,69 @@ class DisplayManager {
     el.textContent = (last && last.type === 'number') ? last.value
                    : calc.tokens.length ? ''
                    : '0';
+  }
+
+  // Like _tokensToString but outputs HTML, rendering frac tokens as stacked fractions
+  _tokensToStringHTML(tokens) {
+    const e     = Evaluator._esc;
+    const parts = [];
+    let i = 0;
+    while (i < tokens.length) {
+      const t   = tokens[i];
+      const op  = tokens[i + 1];
+      const den = tokens[i + 2];
+      // Simple case: number/constant  frac  number/constant → stacked
+      const simpleNum = t.type === 'number' || t.type === 'constant';
+      const simpleDen = den && (den.type === 'number' || den.type === 'constant');
+      if (simpleNum && op && op.type === 'operator' && op.value === 'frac' && simpleDen) {
+        parts.push(
+          `<span class="frac-v"><span class="frac-n">${e(t.value)}</span>` +
+          `<span class="frac-d">${e(den.value)}</span></span>`
+        );
+        i += 3;
+        continue;
+      }
+      // Lone frac-op (complex expression around it) — show as plain /
+      if (t.type === 'operator' && t.value === 'frac') {
+        parts.push('/');
+        i++;
+        continue;
+      }
+      parts.push(this._tokenToText(t));
+      i++;
+    }
+    return parts.join('');
+  }
+
+  _tokenToText(t) {
+    switch (t.type) {
+      case 'number':    return t.value;
+      case 'operator':
+        switch (t.value) {
+          case '*':    return '×';
+          case '/':    return '÷';
+          case 'frac': return '/';
+          default:     return t.value;
+        }
+      case 'function':
+        switch (t.value) {
+          case 'asin':  return 'sin⁻¹(';
+          case 'acos':  return 'cos⁻¹(';
+          case 'atan':  return 'tan⁻¹(';
+          case 'exp':   return 'eˣ(';
+          case 'pow10': return '10^(';
+          case 'cbrt':  return '∛(';
+          default:      return t.value + '(';
+        }
+      case 'lparen':           return '(';
+      case 'rparen':           return ')';
+      case 'comma':            return ',';
+      case 'constant':         return t.value;
+      case 'unary-minus':      return '−';
+      case 'postfix-function':
+        return t.value === 'factorial' ? '!' : t.value;
+      default: return '';
+    }
   }
 
   _tokensToString(tokens) {
@@ -876,10 +954,10 @@ class SecondScreen {
     if (!this.visible) return;
     document.getElementById('ssIndicators').innerHTML =
       document.getElementById('indicatorsDisplay').innerHTML;
-    document.getElementById('ssExpression').textContent =
-      document.getElementById('previousDisplay').textContent;
-    document.getElementById('ssResult').textContent =
-      document.getElementById('mainDisplay').textContent;
+    document.getElementById('ssExpression').innerHTML =
+      document.getElementById('previousDisplay').innerHTML;
+    document.getElementById('ssResult').innerHTML =
+      document.getElementById('mainDisplay').innerHTML;
     document.getElementById('ssResult').className =
       'ss-result' + (document.getElementById('mainDisplay').classList.contains('error') ? ' error' : '');
   }

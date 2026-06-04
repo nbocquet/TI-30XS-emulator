@@ -114,7 +114,9 @@ body{
     margin-left: 10px;
     width:275px;
     height:30px;
-    text-align-last: right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     margin-top: 3px;
     font-size: 0.85em;
     color: rgb(47, 56, 58);
@@ -125,7 +127,9 @@ body{
 .calculator-display{
     width:280px;
     height:36px;
-    text-align:right;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
     font-size:1.575em;
     margin-top: 42px;
     margin-left:10px;
@@ -135,6 +139,34 @@ body{
     color: rgb(160, 40, 40);
     margin-top: 50px;
 }
+
+/* Stacked fraction display */
+.frac-v {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    margin: 0 1px;
+    line-height: 1;
+}
+.frac-n {
+    border-bottom: 1px solid currentColor;
+    padding: 0 2px 1px;
+    text-align: center;
+}
+.frac-d {
+    padding: 1px 2px 0;
+    text-align: center;
+}
+/* Fraction part sizing per context */
+.calculator-display .frac-n,
+.calculator-display .frac-d { font-size: 0.58em; }
+.previous-display .frac-n,
+.previous-display .frac-d   { font-size: 0.78em; }
+.ss-result .frac-n,
+.ss-result .frac-d          { font-size: 0.55em; }
+.ss-expression .frac-n,
+.ss-expression .frac-d      { font-size: 0.78em; }
 .row-1{
     display:flex;
     margin-top:27px;
