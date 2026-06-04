@@ -1,33 +1,57 @@
-# Calculator
+# TI-30XS MultiView — Émulateur navigateur
 
-## Demo (Work in Progress)
+Émulateur d'une calculatrice Texas Instruments TI-30XS MultiView, entièrement en HTML/CSS/JS vanilla, sans dépendance externe. L'évaluateur mathématique est implémenté from scratch (algorithme shunting-yard → RPN).
 
-https://ken862734801.github.io/Calculator/
+## Démo
 
-## Preview
-![Alt text](https://i.imgur.com/C5Nvy5D.png)
-The design was based off a Texas Instrument 30XS Multiview Calculator.
+**https://nbocquet.github.io/TI-30XS-emulator/**
 
-## Summary
-The goal of this Odin Project assignment was to create a functioning calculator using HTML, CSS, and Javascript.
-[Link to the Assignment](https://www.theodinproject.com/lessons/foundations-calculator)
+## Ce qui fonctionne
 
-The calculator is functioning for the most part; however, I have yet to include error messages.
+- Arithmétique : `+` `-` `×` `÷` `^` `(` `)` `%`
+- Fonctions trigonométriques : sin, cos, tan et leurs inverses (asin, acos, atan)
+- Fonctions hyperboliques : sinh, cosh, tanh et leurs inverses
+- Logarithmes et exponentielles : ln, log, eˣ, 10ˣ
+- Racines : √, ∛, xˢᵗʰ root
+- Factorielle (`n!`), combinaisons nCr, permutations nPr
+- Constantes : π, e
+- Valeur absolue
+- Notation scientifique (×10ⁿ)
+- Fractions : saisie `a b/c`, affichage fraction (numérateur/dénominateur en exposant/indice), toggle F↔D
+- Affichage des puissances en exposant et des racines avec vinculum
+- Navigation par curseur dans l'expression (← →)
+- Historique des calculs (↑ ↓)
+- Modes d'angle : DEG / RAD / GRAD
+- Touche `2nd` pour les fonctions secondaires
+- Réponse `Ans` réutilisable
+- Multiplication implicite (`2π`, `3(4+1)`…)
+- Deux coloris : bleu / rose
+- Deuxième écran flottant
 
-I used javascript to allow users to choose between two colorways.
+## Ce qui n'est pas implémenté
 
-## Resources
-I designed the UI prior to realizing the actual scope and knowledge required to create a scientific calculator as compared to a four function calculator.
+- Mode `data` (statistiques)
+- Mode `table`
 
-So I decided to use math.js, an extensive javascript and node.js library, to parse expressions and run a large number of complex functions commonly found on a standard scientific calculator. 
+## Lancer en local
 
+```bash
+python3 -m http.server 8080
+# puis ouvrir http://localhost:8080
+```
 
-Some of the buttons present on the actual Texas Instrument 30XS Multiview don't have a math.js equivalent, and are present more so for the sake of preserving the design. 
+## Tests
 
-https://mathjs.org/docs/getting_started.html
+```bash
+node test.js   # 115 tests
+```
 
+## Architecture
 
+Trois fichiers principaux :
 
-
-
-
+| Fichier | Rôle |
+|---|---|
+| `index.html` | Layout, boutons avec `data-action` |
+| `javascript.js` | `Evaluator` (parser/évaluateur), `Calculator` (état), `DisplayManager` (DOM) |
+| `style.css` | Layout, thèmes bleu/rose via `data-colorway` |
