@@ -281,6 +281,54 @@ class Evaluator {
     }
     return String(rounded);
   }
+
+  static _gcd(a, b) {
+    a = Math.abs(Math.round(a)); b = Math.abs(Math.round(b));
+    while (b) { const t = b; b = a % b; a = t; }
+    return a;
+  }
+
+  // Returns { whole, n, d, sign } or null if no clean fraction with denom ≤ maxDenom
+  static toFraction(x, maxDenom = 999) {
+    const EPS = 5e-9;
+    if (!isFinite(x) || isNaN(x)) return null;
+
+    const sign  = x < 0 ? -1 : 1;
+    const ax    = Math.abs(x);
+    const whole = Math.floor(ax + EPS);
+    let   frac  = ax - whole;
+
+    if (frac < EPS || frac > 1 - EPS) {
+      return { whole: sign * Math.round(ax), n: 0, d: 1, sign };
+    }
+
+    // Continued-fractions search
+    let h1 = 1, h2 = 0, k1 = 0, k2 = 1, b = frac, n = 0, d = 1;
+    for (let i = 0; i < 64; i++) {
+      const a  = Math.floor(b);
+      const h  = a * h1 + h2;
+      const k  = a * k1 + k2;
+      if (k > maxDenom) break;
+      [h2, h1] = [h1, h]; [k2, k1] = [k1, k];
+      n = h1; d = k1;
+      if (Math.abs(frac - h1 / k1) < EPS) break;
+      const rem = b - a;
+      if (Math.abs(rem) < EPS) break;
+      b = 1 / rem;
+    }
+
+    if (Math.abs(frac - n / d) > EPS * 10) return null;
+
+    const g = Evaluator._gcd(n, d);
+    return { whole, n: n / g, d: d / g, sign };
+  }
+
+  static formatFraction({ whole, n, d, sign }) {
+    const neg = sign < 0 ? '-' : '';
+    if (n === 0) return neg + whole;
+    if (whole === 0) return neg + n + '/' + d;
+    return neg + whole + ' ' + n + '/' + d;
+  }
 }
 
 // ============================================================
@@ -294,6 +342,7 @@ const SECOND_MAP = {
   ln:   'exp',
   log:  'pow10',
   sqrt: 'cbrt',
+  'n/d': 'F↔D',
 };
 
 class Calculator {
@@ -310,6 +359,8 @@ class Calculator {
     this.historyIndex   = -1;
     this.memory         = { x: 0, y: 0, z: 0, t: 0, a: 0, b: 0, c: 0 };
     this.isOff          = false;
+    this.rawValue       = null;
+    this.fracDisplay    = true;
     this.displayManager = null;
     this.secondScreen   = null;
   }
@@ -375,6 +426,7 @@ class Calculator {
       case 'cbrt':             this._inputFunction('cbrt');         break;
       case 'pi':               this._inputConstant('π');            break;
       case 'probability':      this._inputPostfix('factorial');     break;
+      case 'F↔D':             this._toggleFracDisplay();           break;
       default: break;
     }
   }
@@ -566,6 +618,11 @@ class Calculator {
 
   // ----- Calculator operations -----
 
+  _toggleFracDisplay() {
+    this.fracDisplay = !this.fracDisplay;
+    this._notify();
+  }
+
   _calculate() {
     if (this.error) { this.error = null; this._notify(); return; }
     if (!this.tokens.length) return;
@@ -583,12 +640,14 @@ class Calculator {
       this.historyIndex   = -1;
       this.ans            = result;
       this.result         = result;
+      this.rawValue       = value;
       this.error          = null;
       this.openParenCount = 0;
       this.justCalculated = true;
     } catch (e) {
-      this.error  = (e instanceof CalcError) ? e.type : 'SYNTAX ERROR';
-      this.result = null;
+      this.error    = (e instanceof CalcError) ? e.type : 'SYNTAX ERROR';
+      this.result   = null;
+      this.rawValue = null;
     }
     this._notify();
   }
@@ -596,6 +655,7 @@ class Calculator {
   clear() {
     this.tokens         = [];
     this.result         = null;
+    this.rawValue       = null;
     this.error          = null;
     this.openParenCount = 0;
     this.justCalculated = false;
@@ -741,6 +801,13 @@ class DisplayManager {
     }
     el.classList.remove('error');
     if (calc.result !== null) {
+      if (calc.fracDisplay && calc.rawValue !== null) {
+        const frac = Evaluator.toFraction(calc.rawValue);
+        if (frac && frac.d > 1) {
+          el.textContent = Evaluator.formatFraction(frac);
+          return;
+        }
+      }
       el.textContent = calc.result;
       return;
     }

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A browser-based emulator of the Texas Instruments TI-30XS MultiView calculator. Built as a static site (no build step, no package manager) using vanilla HTML, CSS, and JavaScript. Math expression evaluation is delegated to [math.js](https://mathjs.org/), loaded from CDN.
+A browser-based emulator of the Texas Instruments TI-30XS MultiView calculator. Built as a static site (no build step, no package manager) using vanilla HTML, CSS, and JavaScript. Math evaluation uses a custom shunting-yard / RPN evaluator (no external dependency).
 
 ## Running the App
 
@@ -20,17 +20,31 @@ There are no tests, no linting setup, and no build process.
 
 The entire logic lives in three files:
 
-- **`index.html`** — Calculator layout. Buttons use `data-action` attributes (e.g. `data-action="calculate"`, `data-action="sin"`) to communicate intent to JS. Buttons without a `data-action` are number keys; their `textContent` is appended directly to the display. Some buttons are marked `class="NaN"` — this class is used by the color-switcher for targeting, not to indicate non-functional state.
+- **`index.html`** — Calculator layout. Buttons use `data-action` attributes to communicate intent to JS. Buttons without a `data-action` are number keys. Some buttons are marked `class="NaN"` — used by the color-switcher, not to indicate non-functional state. Dual-function buttons have `<span class="primary-label">` and `<span class="second-label">` children; CSS hides the inactive one.
 
-- **`javascript.js`** — All behavior via a single delegated `click` listener on `.calculator-keys`. The display (`.calculator-display`) holds a raw expression string that gets passed to `math.evaluate()` on "enter". The `colorChanger(color)` function is called inline from HTML; it switches between "blue" (default, resets inline styles) and "pink" colorways by applying inline styles to `.NaN` buttons and a few named elements.
+- **`javascript.js`** — Three main classes:
+  - `CalcError` — typed error thrown by the evaluator.
+  - `Evaluator` — static-only. Tokenizes, preprocesses (implicit multiplication), runs shunting-yard → RPN, evaluates. Also has `toFraction(x)` / `formatFraction(f)` for fraction display.
+  - `Calculator` — state machine. Holds token list, angle mode (DEG/RAD/GRAD), history, `fracDisplay` flag, `rawValue` (last numeric result). Single delegated click listener on `.calculator-keys`; keyboard support for digits and common operators.
+  - `DisplayManager` — reads `Calculator` state and updates the DOM.
+  - `SECOND_MAP` — maps primary action → secondary action when 2nd is active.
+  - `colorChanger(color)` — switches between "blue" and "pink" colorways via `data-colorway` CSS attribute.
 
-- **`style.css`** — Pure CSS layout and theming. The default colorway is defined here; the pink colorway overrides via inline styles set by JS.
+- **`style.css`** — Layout and theming. Pink colorway uses `body[data-colorway="pink"]` selectors (no inline JS styles). Dual-label visibility controlled by `body.second-active`.
 
-## Key Behaviors and Limitations
+## Key Behaviors
 
-- Expression building: JS concatenates strings onto `.calculator-display` for each button press. `math.js` parses the final string on "enter".
-- `multiplication` and `division` actions translate `×` → `*` and `÷` → `/` before appending, since math.js requires standard operators.
-- `π` is hardcoded as `3.14` (not `math.PI`).
-- Many buttons (navigation arrows, `2nd`, `mode`, `table`, `data`, `probability`, `ln`, `n/d`, `sqrt` partially, etc.) have no JS implementation — they are present for design fidelity only.
-- The colorway event listeners for hover/press states are re-attached inside the loop every time `colorChanger` is called, accumulating duplicate listeners over multiple switches.
-- Display is capped at 20 characters; no error handling around `math.evaluate()` failures.
+- **Expression entry**: token-based (not string concatenation). Each button appends a typed token; `_tokensToString()` renders the expression for display.
+- **Operators**: `×`→`*`, `÷`→`/` internally; display converts back.
+- **π**: uses `Math.PI` exactly.
+- **Fraction display**: on by default (`fracDisplay = true`). After calculation, if the result is a rational number with denominator ≤ 999, it is shown as `n/d` or `w n/d` (mixed number). Toggle with `2nd + n/d` (F↔D).
+- **Angle mode**: cycled by `mode` button (DEG → RAD → GRAD). `2nd` functions: sin⁻¹, cos⁻¹, tan⁻¹, eˣ, 10ˣ, ∛.
+- **History**: ↑/↓ arrows recall past expressions.
+- **Second screen**: floating panel showing a larger view of the display.
+
+## Not Implemented
+
+- `left`/`right`/`forward`/`backward` — cursor navigation within expression (would need caret position tracking).
+- `data` — statistics mode.
+- `table` — table mode.
+- True stacked fraction display (shows `a b/c` text instead).
