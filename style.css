@@ -167,6 +167,21 @@ body{
 .ss-result .frac-d          { font-size: 0.55em; }
 .ss-expression .frac-n,
 .ss-expression .frac-d      { font-size: 0.78em; }
+
+/* Radical (√ / ∛) with vinculum */
+.radical-content {
+    border-top: 1.5px solid currentColor;
+    padding: 0 2px 0 1px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Superscript sizing */
+sup {
+    font-size: 0.65em;
+    vertical-align: super;
+    line-height: 0;
+}
 .row-1{
     display:flex;
     margin-top:27px;

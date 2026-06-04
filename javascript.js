@@ -834,32 +834,83 @@ class DisplayManager {
                    : '0';
   }
 
-  // Like _tokensToString but outputs HTML, rendering frac tokens as stacked fractions
+  // Like _tokensToString but outputs HTML, rendering frac/sqrt/cbrt/^ specially
   _tokensToStringHTML(tokens) {
-    const e     = Evaluator._esc;
+    const e = Evaluator._esc;
     const parts = [];
     let i = 0;
+
+    const findMatchingRparen = (startIdx) => {
+      let depth = 0;
+      for (let j = startIdx; j < tokens.length; j++) {
+        if (tokens[j].type === 'lparen') depth++;
+        else if (tokens[j].type === 'rparen') { depth--; if (depth === 0) return j; }
+      }
+      return -1;
+    };
+
     while (i < tokens.length) {
-      const t   = tokens[i];
-      const op  = tokens[i + 1];
-      const den = tokens[i + 2];
-      // Simple case: number/constant  frac  number/constant → stacked
-      const simpleNum = t.type === 'number' || t.type === 'constant';
-      const simpleDen = den && (den.type === 'number' || den.type === 'constant');
-      if (simpleNum && op && op.type === 'operator' && op.value === 'frac' && simpleDen) {
+      const t  = tokens[i];
+      const n1 = tokens[i + 1];
+      const n2 = tokens[i + 2];
+
+      // Stacked fraction: simple_val frac simple_val
+      if ((t.type === 'number' || t.type === 'constant') &&
+          n1 && n1.type === 'operator' && n1.value === 'frac' &&
+          n2 && (n2.type === 'number' || n2.type === 'constant')) {
         parts.push(
           `<span class="frac-v"><span class="frac-n">${e(t.value)}</span>` +
-          `<span class="frac-d">${e(den.value)}</span></span>`
+          `<span class="frac-d">${e(n2.value)}</span></span>`
         );
         i += 3;
         continue;
       }
-      // Lone frac-op (complex expression around it) — show as plain /
+
+      // Lone frac operator
       if (t.type === 'operator' && t.value === 'frac') {
         parts.push('/');
         i++;
         continue;
       }
+
+      // ^ → superscript
+      if (t.type === 'operator' && t.value === '^') {
+        if (n1 && n1.type === 'lparen') {
+          const closeIdx = findMatchingRparen(i + 1);
+          const endIdx   = closeIdx !== -1 ? closeIdx : tokens.length;
+          parts.push(`<sup>${this._tokensToStringHTML(tokens.slice(i + 2, endIdx))}</sup>`);
+          i = endIdx + 1;
+          continue;
+        } else if (n1 && n1.type === 'unary-minus' && n2 && (n2.type === 'number' || n2.type === 'constant')) {
+          parts.push(`<sup>−${e(n2.value)}</sup>`);
+          i += 3;
+          continue;
+        } else if (n1 && (n1.type === 'number' || n1.type === 'constant')) {
+          parts.push(`<sup>${e(n1.value)}</sup>`);
+          i += 2;
+          continue;
+        }
+        parts.push('^');
+        i++;
+        continue;
+      }
+
+      // sqrt / cbrt → radical with vinculum (extends to end if no closing paren yet)
+      if (t.type === 'function' && (t.value === 'sqrt' || t.value === 'cbrt')) {
+        const sym = t.value === 'sqrt' ? '√' : '∛';
+        if (n1 && n1.type === 'lparen') {
+          const closeIdx = findMatchingRparen(i + 1);
+          const endIdx   = closeIdx !== -1 ? closeIdx : tokens.length;
+          const inner    = this._tokensToStringHTML(tokens.slice(i + 2, endIdx));
+          parts.push(`${sym}<span class="radical-content">${inner || '&nbsp;'}</span>`);
+          i = endIdx + 1;
+          continue;
+        }
+        parts.push(sym);
+        i++;
+        continue;
+      }
+
       parts.push(e(this._tokenToText(t)));
       i++;
     }
@@ -878,13 +929,14 @@ class DisplayManager {
         }
       case 'function':
         switch (t.value) {
-          case 'asin':  return 'sin⁻¹(';
-          case 'acos':  return 'cos⁻¹(';
-          case 'atan':  return 'tan⁻¹(';
-          case 'exp':   return 'eˣ(';
-          case 'pow10': return '10^(';
-          case 'cbrt':  return '∛(';
-          default:      return t.value + '(';
+          case 'asin':  return 'sin⁻¹';
+          case 'acos':  return 'cos⁻¹';
+          case 'atan':  return 'tan⁻¹';
+          case 'exp':   return 'eˣ';
+          case 'pow10': return '10^';
+          case 'cbrt':  return '∛';
+          case 'sqrt':  return '√';
+          default:      return t.value;
         }
       case 'lparen':           return '(';
       case 'rparen':           return ')';
@@ -910,13 +962,13 @@ class DisplayManager {
           }
         case 'function':
           switch (t.value) {
-            case 'asin':  return 'sin⁻¹(';
-            case 'acos':  return 'cos⁻¹(';
-            case 'atan':  return 'tan⁻¹(';
-            case 'exp':   return 'eˣ(';
-            case 'pow10': return '10^(';
-            case 'cbrt':  return '∛(';
-            default:      return t.value + '(';
+            case 'asin':  return 'sin⁻¹';
+            case 'acos':  return 'cos⁻¹';
+            case 'atan':  return 'tan⁻¹';
+            case 'exp':   return 'eˣ';
+            case 'pow10': return '10^';
+            case 'cbrt':  return '∛';
+            default:      return t.value;
           }
         case 'lparen':           return '(';
         case 'rparen':           return ')';
