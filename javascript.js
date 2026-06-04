@@ -15,11 +15,12 @@ class CalcError extends Error {
 
 class Evaluator {
   static OPERATORS = {
-    '+': { precedence: 1, assoc: 'L' },
-    '-': { precedence: 1, assoc: 'L' },
-    '*': { precedence: 2, assoc: 'L' },
-    '/': { precedence: 2, assoc: 'L' },
-    '^': { precedence: 4, assoc: 'R' },
+    '+':    { precedence: 1, assoc: 'L' },
+    '-':    { precedence: 1, assoc: 'L' },
+    '*':    { precedence: 2, assoc: 'L' },
+    '/':    { precedence: 2, assoc: 'L' },
+    'frac': { precedence: 2, assoc: 'L' }, // n/d fraction bar — same as /
+    '^':    { precedence: 4, assoc: 'R' },
   };
   static UNARY_PREC = 3; // between * (2) and ^ (4), right-associative
   static TWO_ARG_FUNCS = new Set(['nthroot', 'nPr', 'nCr']);
@@ -65,6 +66,7 @@ class Evaluator {
       case '-': return a - b;
       case '*': return a * b;
       case '/':
+      case 'frac':
         if (b === 0) throw new CalcError('DIVIDE BY 0');
         return a / b;
       case '^':
@@ -403,7 +405,7 @@ class Calculator {
       case 'subtraction':      this._inputOperator('-');            break;
       case 'multiplication':   this._inputOperator('*');            break;
       case 'division':         this._inputOperator('/');            break;
-      case 'n/d':              this._inputOperator('/');            break;
+      case 'n/d':              this._inputOperator('frac');         break;
       case 'power':            this._inputOperator('^');            break;
       case 'open-paren':       this._inputParen('(');              break;
       case 'close-paren':      this._inputParen(')');              break;
@@ -823,9 +825,10 @@ class DisplayManager {
         case 'number':           return t.value;
         case 'operator':
           switch (t.value) {
-            case '*': return '×';
-            case '/': return '÷';
-            default:  return t.value;
+            case '*':    return '×';
+            case '/':    return '÷';
+            case 'frac': return '/';
+            default:     return t.value;
           }
         case 'function':
           switch (t.value) {
