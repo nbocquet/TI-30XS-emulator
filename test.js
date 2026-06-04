@@ -430,6 +430,67 @@ describe('Calculator — history & Ans', () => {
   });
 });
 
+// ── Calculator — HYP mode ─────────────────────────────────────────────────────
+describe('Calculator — HYP mode', () => {
+  it('2nd + pi toggles hypActive', () => {
+    const calc = new Calculator();
+    calc.handleKey('2nd');
+    calc.handleKey('pi');
+    expect(calc.hypActive).toBe(true);
+  });
+  it('2nd + pi twice toggles off', () => {
+    const calc = new Calculator();
+    calc.handleKey('2nd'); calc.handleKey('pi');
+    calc.handleKey('2nd'); calc.handleKey('pi');
+    expect(calc.hypActive).toBe(false);
+  });
+  it('HYP + sin → sinh(0) = 0', () => {
+    const calc = new Calculator();
+    calc.handleKey('2nd'); calc.handleKey('pi');   // activate HYP
+    calc.handleKey('sin');                          // sinh(
+    calc.handleKey(undefined, '0');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(0, 10);
+    expect(calc.hypActive).toBe(false);            // HYP auto-resets
+  });
+  it('HYP + cos → cosh(0) = 1', () => {
+    const calc = new Calculator();
+    calc.handleKey('2nd'); calc.handleKey('pi');
+    calc.handleKey('cos');
+    calc.handleKey(undefined, '0');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(1, 10);
+  });
+  it('HYP + 2nd + sin → asinh', () => {
+    const calc = new Calculator();
+    calc.handleKey('2nd'); calc.handleKey('pi');   // HYP on
+    calc.handleKey('2nd'); calc.handleKey('sin');   // 2nd+sin in HYP → asinh
+    calc.handleKey(undefined, '0');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(0, 10);      // asinh(0) = 0
+  });
+});
+
+// ── Calculator — xth root ─────────────────────────────────────────────────────
+describe('Calculator — xth root', () => {
+  it('27 xroot 3 = 3 (cube root of 27)', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'2'); calc.handleKey(undefined,'7');
+    calc.handleKey('2nd'); calc.handleKey('power');  // xroot → inserts ^(1/
+    calc.handleKey(undefined,'3');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(3, 10);
+  });
+  it('16 xroot 4 = 2 (4th root of 16)', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined,'1'); calc.handleKey(undefined,'6');
+    calc.handleKey('2nd'); calc.handleKey('power');
+    calc.handleKey(undefined,'4');
+    calc.handleKey('calculate');
+    expect(calc.rawValue).toBeCloseTo(2, 10);
+  });
+});
+
 // ── Summary ───────────────────────────────────────────────────────────────────
 console.log(`\n${'─'.repeat(50)}`);
 const total = passed + failed;

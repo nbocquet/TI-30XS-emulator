@@ -354,14 +354,16 @@ class Evaluator {
 // ============================================================
 
 const SECOND_MAP = {
-  sin:         'asin',
-  cos:         'acos',
-  tan:         'atan',
-  ln:          'exp',
-  log:         'pow10',
-  sqrt:        'cbrt',
-  'n/d':       'F↔D',
+  sin:           'asin',
+  cos:           'acos',
+  tan:           'atan',
+  ln:            'exp',
+  log:           'pow10',
+  sqrt:          'cbrt',
+  'n/d':         'F↔D',
   'close-paren': 'percent',
+  pi:            'hyp',
+  power:         'xroot',
 };
 
 class Calculator {
@@ -372,6 +374,7 @@ class Calculator {
     this.ans            = '0';
     this.angleMode      = 'DEG';
     this.secondActive   = false;
+    this.hypActive      = false;
     this.justCalculated = false;
     this.openParenCount = 0;
     this.history        = [];
@@ -405,7 +408,17 @@ class Calculator {
       if (btn) btn.classList.remove('active');
     }
 
-    this._dispatch(effective, raw);
+    // HYP mode: redirect trig functions to their hyperbolic equivalents
+    let dispatched = effective;
+    if (this.hypActive && effective !== 'hyp') {
+      const HYP_MAP = { sin: 'sinh', cos: 'cosh', tan: 'tanh', asin: 'asinh', acos: 'acosh', atan: 'atanh' };
+      if (HYP_MAP[effective]) {
+        dispatched = HYP_MAP[effective];
+        this.hypActive = false;
+      }
+    }
+
+    this._dispatch(dispatched, raw);
   }
 
   _dispatch(action) {
@@ -452,6 +465,14 @@ class Calculator {
       case 'pi':               this._inputConstant('π');            break;
       case 'probability':      this._inputPostfix('factorial');     break;
       case 'F↔D':             this._toggleFracDisplay();           break;
+      case 'hyp':              this._toggleHyp();                  break;
+      case 'xroot':            this._inputXRoot();                  break;
+      case 'sinh':             this._inputFunction('sinh');         break;
+      case 'cosh':             this._inputFunction('cosh');         break;
+      case 'tanh':             this._inputFunction('tanh');         break;
+      case 'asinh':            this._inputFunction('asinh');        break;
+      case 'acosh':            this._inputFunction('acosh');        break;
+      case 'atanh':            this._inputFunction('atanh');        break;
       default: break;
     }
   }
@@ -652,6 +673,28 @@ class Calculator {
     this._notify();
   }
 
+  _toggleHyp() {
+    this.hypActive = !this.hypActive;
+    this._notify();
+  }
+
+  _inputXRoot() {
+    if (this.justCalculated) {
+      this.tokens = [{ type: 'constant', value: 'Ans' }];
+      this.result = null; this.justCalculated = false; this.cursorPos = 1;
+    }
+    // Insert ^(1/ at cursor; user types the root index, auto-close on =
+    this.tokens.splice(this.cursorPos, 0,
+      { type: 'operator', value: '^' },
+      { type: 'lparen',   value: '(' },
+      { type: 'number',   value: '1' },
+      { type: 'operator', value: '/' },
+    );
+    this.cursorPos += 4;
+    this.openParenCount++;
+    this._notify();
+  }
+
   _calculate() {
     if (this.error) { this.error = null; this._notify(); return; }
     if (!this.tokens.length) return;
@@ -840,6 +883,7 @@ class DisplayManager {
       { label: 'RAD',  on: calc.angleMode === 'RAD' },
       { label: 'GRAD', on: calc.angleMode === 'GRAD' },
       { label: '2nd',  on: calc.secondActive },
+      { label: 'HYP',  on: calc.hypActive },
     ];
     this.els.indicators.innerHTML = badges
       .map(b => `<span class="indicator-badge${b.on ? '' : ' inactive'}">${b.label}</span>`)
@@ -991,6 +1035,9 @@ class DisplayManager {
           case 'asin':  return 'sin⁻¹';
           case 'acos':  return 'cos⁻¹';
           case 'atan':  return 'tan⁻¹';
+          case 'asinh': return 'sinh⁻¹';
+          case 'acosh': return 'cosh⁻¹';
+          case 'atanh': return 'tanh⁻¹';
           case 'exp':   return 'eˣ';
           case 'pow10': return '10^';
           case 'cbrt':  return '∛';
