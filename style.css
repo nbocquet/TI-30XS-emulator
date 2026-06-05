@@ -71,13 +71,7 @@ body{
     border-bottom:none;
     border-top:none;
 }
-.brand-name{
-    text-align:center;
-    margin-top:12px;
-    margin-bottom:10px;
-    font-size: 0.688em;
-    font-weight:bold;
-}
+
 .screen-display{
         display:flex;
         flex-direction:column;
