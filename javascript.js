@@ -20,10 +20,11 @@ class Evaluator {
     '*':    { precedence: 2, assoc: 'L' },
     '/':    { precedence: 2, assoc: 'L' },
     'frac': { precedence: 2, assoc: 'L' }, // n/d fraction bar — same as /
+    'int/': { precedence: 2, assoc: 'L' }, // integer division
     '^':    { precedence: 4, assoc: 'R' },
   };
   static UNARY_PREC = 3; // between * (2) and ^ (4), right-associative
-  static TWO_ARG_FUNCS = new Set(['nthroot', 'nPr', 'nCr', 'round', 'min', 'max', 'gcd', 'lcm', 'remainder', 'randint']);
+  static TWO_ARG_FUNCS = new Set(['nthroot', 'nPr', 'nCr', 'round', 'min', 'max', 'gcd', 'lcm', 'remainder', 'randint', 'R_Pr', 'R_Pt', 'P_Rx', 'P_Ry']);
 
   // ----- Angle conversion -----
 
@@ -73,6 +74,9 @@ class Evaluator {
         if (a === 0 && b < 0)           throw new CalcError('DIVIDE BY 0');
         if (a < 0 && !Number.isInteger(b)) throw new CalcError('DOMAIN ERROR');
         return Math.pow(a, b);
+      case 'int/':
+        if (b === 0) throw new CalcError('DIVIDE BY 0');
+        return Math.trunc(a / b);
       default:
         throw new CalcError('SYNTAX ERROR');
     }
@@ -148,6 +152,10 @@ class Evaluator {
       case 'randint':
         if (!Number.isInteger(a) || !Number.isInteger(b) || a > b) throw new CalcError('DOMAIN ERROR');
         return Math.floor(Math.random() * (b - a + 1)) + a;
+      case 'R_Pr':    return Math.sqrt(a * a + b * b);
+      case 'R_Pt':    return Evaluator._fromRad(Math.atan2(b, a), mode);
+      case 'P_Rx':    return a * Math.cos(Evaluator._toRad(b, mode));
+      case 'P_Ry':    return a * Math.sin(Evaluator._toRad(b, mode));
       default:
         throw new CalcError('SYNTAX ERROR');
     }
@@ -248,9 +256,10 @@ class Evaluator {
         stack.push(v);
       } else if (t.type === 'constant') {
         switch (t.value) {
-          case 'π':   stack.push(Math.PI); break;
-          case 'e':   stack.push(Math.E);  break;
-          case 'Ans': stack.push(parseFloat(ans) || 0); break;
+          case 'π':    stack.push(Math.PI); break;
+          case 'e':    stack.push(Math.E);  break;
+          case 'Ans':  stack.push(parseFloat(ans) || 0); break;
+          case 'rand': stack.push(Math.random()); break;
           default:
             if (t.value in memory) { stack.push(memory[t.value]); break; }
             throw new CalcError('SYNTAX ERROR');
@@ -391,7 +400,7 @@ const SECOND_MAP = {
   tan:           'atan',
   ln:            'exp',
   log:           'pow10',
-  sqrt:          'cbrt',
+  math:          'cbrt',
   'n/d':         'und',
   'table':       'F↔D',
   'open-paren':  'percent',
@@ -519,6 +528,7 @@ class Calculator {
       case 'cbrt':             this._inputFunction('cbrt');         break;
       case 'pi':               this._inputConstant('π');            break;
       case 'probability':      this._openPrbMenu();                 break;
+      case 'math':             this._openMathMenu();                break;
       case 'F↔D':             this._toggleFracDisplay();           break;
       case 'hyp':              this._toggleHyp();                  break;
       case 'xroot':            this._inputXRoot();                  break;
@@ -970,6 +980,7 @@ class Calculator {
         { label: 'nCr',      action: () => this._inputBinaryFunc('nCr') },
         { label: '!',        action: () => this._inputPostfix('factorial') },
         { label: 'randInt(', action: () => this._inputFunction('randint') },
+        { label: 'rand',     action: () => this._inputConstant('rand') },
       ],
       selected: 0,
     };
@@ -1012,15 +1023,53 @@ class Calculator {
       type: 'angle',
       title: 'ANGLE',
       items: [
-        { label: '°',   action: () => {} },
-        { label: "'",   action: () => {} },
-        { label: '"',   action: () => {} },
-        { label: 'DMS', action: () => { this.dmsMode = true; this._notify(); } },
-        { label: 'r',   action: () => {} },
-        { label: 'g',   action: () => {} },
+        { label: '°',      action: () => {} },
+        { label: "'",      action: () => {} },
+        { label: '"',      action: () => {} },
+        { label: 'DMS',    action: () => { this.dmsMode = true; this._notify(); } },
+        { label: 'r',      action: () => {} },
+        { label: 'g',      action: () => {} },
+        { label: 'R▶Pr(',  action: () => this._inputFunction('R_Pr') },
+        { label: 'R▶Pθ(',  action: () => this._inputFunction('R_Pt') },
+        { label: 'P▶Rx(',  action: () => this._inputFunction('P_Rx') },
+        { label: 'P▶Ry(',  action: () => this._inputFunction('P_Ry') },
       ],
       selected: 0,
     };
+    this._notify();
+  }
+
+  _openMathMenu() {
+    this.menuState = {
+      type: 'math',
+      title: 'MATH',
+      items: [
+        { label: 'int÷',       action: () => this._inputOperator('int/') },
+        { label: 'Simp',       action: () => this._simpFraction() },
+        { label: 'gcd(',       action: () => this._inputBinaryFunc('gcd') },
+        { label: 'lcm(',       action: () => this._inputBinaryFunc('lcm') },
+        { label: 'round(',     action: () => this._inputBinaryFunc('round') },
+        { label: 'iPart(',     action: () => this._inputFunction('iPart') },
+        { label: 'fPart(',     action: () => this._inputFunction('fPart') },
+        { label: 'min(',       action: () => this._inputBinaryFunc('min') },
+        { label: 'max(',       action: () => this._inputBinaryFunc('max') },
+        { label: 'remainder(', action: () => this._inputBinaryFunc('remainder') },
+      ],
+      selected: 0,
+    };
+    this._notify();
+  }
+
+  _simpFraction() {
+    if (this.rawValue !== null) {
+      const frac = Evaluator.toFraction(this.rawValue);
+      if (frac && frac.d > 1) {
+        this.fracDisplay = true;
+        this._notify();
+        return;
+      }
+    }
+    // If no fraction result, treat as no-op
     this._notify();
   }
 
@@ -1301,6 +1350,7 @@ class DisplayManager {
           case '*':    return '×';
           case '/':    return '÷';
           case 'frac': return '/';
+          case 'int/': return ' int÷ ';
           default:     return t.value;
         }
       case 'function':
@@ -1315,6 +1365,10 @@ class DisplayManager {
           case 'pow10': return '10^';
           case 'cbrt':  return '∛';
           case 'sqrt':  return '√';
+          case 'R_Pr':  return 'R▶Pr';
+          case 'R_Pt':  return 'R▶Pθ';
+          case 'P_Rx':  return 'P▶Rx';
+          case 'P_Ry':  return 'P▶Ry';
           default:      return t.value;
         }
       case 'lparen':           return '(';
@@ -1341,6 +1395,7 @@ class DisplayManager {
             case '*':    return '×';
             case '/':    return '÷';
             case 'frac': return '/';
+            case 'int/': return ' int÷ ';
             default:     return t.value;
           }
         case 'function':
@@ -1351,6 +1406,10 @@ class DisplayManager {
             case 'exp':   return 'eˣ';
             case 'pow10': return '10^';
             case 'cbrt':  return '∛';
+            case 'R_Pr':  return 'R▶Pr';
+            case 'R_Pt':  return 'R▶Pθ';
+            case 'P_Rx':  return 'P▶Rx';
+            case 'P_Ry':  return 'P▶Ry';
             default:      return t.value;
           }
         case 'lparen':           return '(';

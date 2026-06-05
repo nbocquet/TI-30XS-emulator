@@ -370,9 +370,9 @@ describe('Calculator — 2nd key', () => {
     calc.handleKey('2nd'); calc.handleKey('log');
     expect(calc.tokens[0].value).toBe('pow10');
   });
-  it('sqrt → cbrt via 2nd', () => {
+  it('math → cbrt via 2nd', () => {
     const calc = new Calculator();
-    calc.handleKey('2nd'); calc.handleKey('sqrt');
+    calc.handleKey('2nd'); calc.handleKey('math');
     expect(calc.tokens[0].value).toBe('cbrt');
   });
 });
@@ -766,6 +766,98 @@ describe('Calculator — percent / toPercent', () => {
     calc.handleKey(undefined,'5'); calc.handleKey('calculate');
     calc.handleKey('2nd'); calc.handleKey('close-paren'); // toPercent
     expect(calc.rawValue).toBe(500);
+  });
+});
+
+describe('Evaluator — int/ integer division', () => {
+  it('7 int/ 2 = 3', () => {
+    const r = Evaluator.evaluate(
+      [{type:'number',value:'7'},{type:'operator',value:'int/'},{type:'number',value:'2'}],
+      'DEG', '0'
+    );
+    expect(r).toBe(3);
+  });
+  it('-7 int/ 2 = -3 (truncates toward zero)', () => {
+    const r = Evaluator.evaluate(
+      [{type:'unary-minus'},{type:'number',value:'7'},{type:'operator',value:'int/'},{type:'number',value:'2'}],
+      'DEG', '0'
+    );
+    expect(r).toBe(-3);
+  });
+  it('int/ by zero throws DIVIDE BY 0', () => {
+    expect(() => Evaluator.evaluate(
+      [{type:'number',value:'5'},{type:'operator',value:'int/'},{type:'number',value:'0'}],
+      'DEG', '0'
+    )).toThrow('DIVIDE BY 0');
+  });
+});
+
+describe('Evaluator — rand', () => {
+  it('rand evaluates to a number in [0, 1)', () => {
+    const r = Evaluator.evaluate([{type:'constant',value:'rand'}], 'DEG', '0');
+    expect(r >= 0 && r < 1).toBe(true);
+  });
+});
+
+describe('Evaluator — R↔P conversions', () => {
+  it('R_Pr(3,4) = 5', () => {
+    const r = Evaluator.evaluate(
+      [{type:'function',value:'R_Pr'},{type:'lparen'},{type:'number',value:'3'},{type:'comma'},{type:'number',value:'4'},{type:'rparen'}],
+      'DEG', '0'
+    );
+    expect(r).toBeCloseTo(5);
+  });
+  it('R_Pt(1,1) = 45° in DEG mode', () => {
+    const r = Evaluator.evaluate(
+      [{type:'function',value:'R_Pt'},{type:'lparen'},{type:'number',value:'1'},{type:'comma'},{type:'number',value:'1'},{type:'rparen'}],
+      'DEG', '0'
+    );
+    expect(r).toBeCloseTo(45);
+  });
+  it('P_Rx(5,0) = 5 in DEG mode', () => {
+    const r = Evaluator.evaluate(
+      [{type:'function',value:'P_Rx'},{type:'lparen'},{type:'number',value:'5'},{type:'comma'},{type:'number',value:'0'},{type:'rparen'}],
+      'DEG', '0'
+    );
+    expect(r).toBeCloseTo(5);
+  });
+  it('P_Ry(5,90) = 5 in DEG mode', () => {
+    const r = Evaluator.evaluate(
+      [{type:'function',value:'P_Ry'},{type:'lparen'},{type:'number',value:'5'},{type:'comma'},{type:'number',value:'90'},{type:'rparen'}],
+      'DEG', '0'
+    );
+    expect(r).toBeCloseTo(5);
+  });
+});
+
+describe('Calculator — math menu', () => {
+  it('math button opens MATH menu', () => {
+    const calc = new Calculator();
+    calc.handleKey('math');
+    expect(calc.menuState !== null).toBe(true);
+    expect(calc.menuState.title).toBe('MATH');
+  });
+  it('MATH menu item 1 (int÷) inserts int/ operator', () => {
+    const calc = new Calculator();
+    calc.handleKey(undefined, '7');
+    calc.handleKey('math');
+    calc.handleKey(undefined, '1'); // select int÷
+    expect(calc.tokens.some(t => t.type === 'operator' && t.value === 'int/')).toBe(true);
+  });
+  it('2nd+math inserts cbrt', () => {
+    const calc = new Calculator();
+    calc.handleKey('2nd'); calc.handleKey('math');
+    expect(calc.tokens[0].value).toBe('cbrt');
+  });
+});
+
+describe('Calculator — PRB rand', () => {
+  it('rand item in PRB menu inserts rand constant', () => {
+    const calc = new Calculator();
+    calc.handleKey('probability');
+    expect(calc.menuState.items.some(i => i.label === 'rand')).toBe(true);
+    calc.handleKey(undefined, '5'); // select rand
+    expect(calc.tokens[0]).toEqual({type: 'constant', value: 'rand'});
   });
 });
 
