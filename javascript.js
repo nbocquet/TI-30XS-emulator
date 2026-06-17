@@ -388,6 +388,61 @@ class Evaluator {
     if (whole === 0) return neg + fv(n, d);
     return neg + e(whole) + fv(n, d);
   }
+
+  // Returns { n, d, sign } for x = sign*(n/d)*π, or null if not a clean π multiple
+  static toPiMultiple(x, maxDenom = 99) {
+    if (!isFinite(x) || isNaN(x) || x === 0) return null;
+    const ratio = x / Math.PI;
+    const frac  = Evaluator.toFraction(ratio, maxDenom);
+    if (!frac) return null;
+    const impN = frac.whole * frac.d + frac.n;
+    if (impN === 0) return null;
+    return { n: impN, d: frac.d, sign: frac.sign };
+  }
+
+  static formatPiHTML({ n, d, sign }) {
+    const e    = Evaluator._esc;
+    const neg  = sign < 0 ? '-' : '';
+    const fv   = (a, b) =>
+      `<span class="frac-v"><span class="frac-n">${a}</span><span class="frac-d">${e(b)}</span></span>`;
+    const nPart = n === 1 ? 'π' : e(n) + 'π';
+    if (d === 1) return neg + nPart;
+    return neg + fv(nPart, d);
+  }
+
+  // Returns { n, m, sign } for x = sign * n * √m (m square-free, m > 1), or null
+  static toSqrtForm(x) {
+    if (!isFinite(x) || isNaN(x) || x === 0) return null;
+    const sign = x < 0 ? -1 : 1;
+    const ax   = Math.abs(x);
+    const sq   = ax * ax;
+    const N    = Math.round(sq);
+    if (N <= 0 || Math.abs(sq - N) > 1e-8 * Math.max(N, 1)) return null;
+
+    // Perfect square → result is rational, let fraction display handle it
+    const sqrtN = Math.round(Math.sqrt(N));
+    if (sqrtN * sqrtN === N) return null;
+
+    // Factor out all perfect-square factors from N
+    let outside = 1;
+    let inside  = N;
+    for (let p = 2; p * p <= inside; p++) {
+      while (inside % (p * p) === 0) {
+        inside  = Math.round(inside / (p * p));
+        outside *= p;
+      }
+    }
+    if (inside === 1 || inside > 9999) return null;
+    return { n: outside, m: inside, sign };
+  }
+
+  static formatSqrtHTML({ n, m, sign }) {
+    const e      = Evaluator._esc;
+    const neg    = sign < 0 ? '-' : '';
+    const radical = `√<span class="radical-content">${e(m)}</span>`;
+    if (n === 1) return neg + radical;
+    return neg + e(n) + radical;
+  }
 }
 
 // ============================================================
@@ -402,7 +457,7 @@ const SECOND_MAP = {
   log:           'pow10',
   math:          'cbrt',
   'n/d':         'und',
-  'table':       'F↔D',
+  'toggle-display': 'F↔D',
   'open-paren':  'percent',
   'close-paren': 'topercent',
   'negative':    'ans',
@@ -434,7 +489,7 @@ class Calculator {
     this.rawValue       = null;
     this.cursorPos      = 0;
     this.fracDisplay    = true;
-    this.fracMixed      = true;
+    this.fracMixed      = false;
     this.dmsMode        = false;
     this.menuState      = null;
     this.displayManager = null;
@@ -489,8 +544,8 @@ class Calculator {
       case 'down':             this._navigateHistory('down');       break;
       case 'left':             this._cursorLeft();                  break;
       case 'right':            this._cursorRight();                 break;
-      case 'forward':          this._cursorLeft();                  break;
-      case 'backward':         this._cursorRight();                 break;
+      case 'forward':          this.justCalculated ? this._toggleFracDisplay() : this._cursorLeft();  break;
+      case 'backward':         this.justCalculated ? this._toggleFracDisplay() : this._cursorRight(); break;
       case 'percent':          this._inputPostfix('percent');       break;
       case 'topercent':        this._toPercent();                   break;
       case 'ans':              this._inputConstant('Ans');          break;
@@ -505,8 +560,8 @@ class Calculator {
       case 'subtraction':      this._inputOperator('-');            break;
       case 'multiplication':   this._inputOperator('*');            break;
       case 'division':         this._inputOperator('/');            break;
-      case 'n/d':              this._inputOperator('frac');         break;
-      case 'power':            this._inputOperator('^');            break;
+      case 'n/d':              this._inputFrac();                   break;
+      case 'power':            this._inputPower();                  break;
       case 'open-paren':       this._inputParen('(');              break;
       case 'close-paren':      this._inputParen(')');              break;
       case 'decimal':          this._inputDecimal();                break;
@@ -529,6 +584,7 @@ class Calculator {
       case 'pi':               this._inputConstant('π');            break;
       case 'probability':      this._openPrbMenu();                 break;
       case 'math':             this._openMathMenu();                break;
+      case 'toggle-display':   this._toggleFracDisplay();           break;
       case 'F↔D':             this._toggleFracDisplay();           break;
       case 'hyp':              this._toggleHyp();                  break;
       case 'xroot':            this._inputXRoot();                  break;
@@ -622,6 +678,80 @@ class Calculator {
     this._notify();
   }
 
+  _inputPower() {
+    if (this.error) { this.error = null; this._notify(); return; }
+    if (this.justCalculated) {
+      this.tokens = [{ type: 'constant', value: 'Ans' }];
+      this.result = null;
+      this.justCalculated = false;
+      this.cursorPos = 1;
+    }
+    if (!this.tokens.length) return;
+    const prev = this.tokens[this.cursorPos - 1];
+    if (prev && prev.type === 'operator') return;
+    this.tokens.splice(this.cursorPos, 0,
+      { type: 'operator', value: '^' },
+      { type: 'lparen' },
+      { type: 'rparen' }
+    );
+    this.cursorPos += 2; // cursor between ( and )
+    this._notify();
+  }
+
+  _isSimpleGroup(toks) {
+    if (toks.length === 0) return true;
+    if (toks.length === 1) return toks[0].type === 'number' || toks[0].type === 'constant';
+    if (toks[0].type !== 'lparen') return false;
+    let depth = 0;
+    for (let i = 0; i < toks.length; i++) {
+      if (toks[i].type === 'lparen')       depth++;
+      else if (toks[i].type === 'rparen') { depth--; if (depth === 0) return i === toks.length - 1; }
+    }
+    return false;
+  }
+
+  _inputFrac() {
+    if (this.error) { this.error = null; this._notify(); return; }
+    // n/d enters fraction mode — it never reuses Ans. After a result, start fresh.
+    if (this.justCalculated) {
+      this.tokens = [];
+      this.result = null;
+      this.justCalculated = false;
+      this.cursorPos = 0;
+    }
+
+    const prev = this.tokens[this.cursorPos - 1];
+    // No numerator to the left (empty entry, just after a result, or right after an
+    // operator/open-paren): drop in an empty ▯/▯ template with the cursor in the numerator.
+    if (!prev || prev.type === 'operator' || prev.type === 'unary-minus' ||
+        prev.type === 'lparen' || prev.type === 'comma') {
+      this.tokens.splice(this.cursorPos, 0,
+        { type: 'lparen' }, { type: 'rparen' },
+        { type: 'operator', value: 'frac' },
+        { type: 'lparen' }, { type: 'rparen' }
+      );
+      this.cursorPos += 1; // inside the numerator parens
+      this._notify();
+      return;
+    }
+
+    // Auto-wrap numerator if it's a complex expression, so the stacked display works
+    const numToks = this.tokens.slice(0, this.cursorPos);
+    if (!this._isSimpleGroup(numToks)) {
+      this.tokens.splice(0, 0, { type: 'lparen' });
+      this.tokens.splice(this.cursorPos + 1, 0, { type: 'rparen' });
+      this.cursorPos += 2;
+    }
+
+    this.tokens.splice(this.cursorPos, 0,
+      { type: 'operator', value: 'frac' },
+      { type: 'lparen' },
+      { type: 'rparen' }
+    );
+    this.cursorPos += 2; // cursor between ( and )
+    this._notify();
+  }
+
   _inputParen(which) {
     if (this.error) this.clear();
     if (which === '(') {
@@ -631,6 +761,13 @@ class Calculator {
       this.tokens.splice(this.cursorPos, 0, { type: 'lparen' });
       this.cursorPos++;
     } else {
+      // Step over an existing ) immediately after cursor (e.g. auto-inserted by _inputFrac)
+      const next = this.tokens[this.cursorPos];
+      if (next && next.type === 'rparen') {
+        this.cursorPos++;
+        this._notify();
+        return;
+      }
       // Only allow closing if there's an unmatched open paren to the left of cursor
       const openLeft = this.tokens.slice(0, this.cursorPos).reduce(
         (n, t) => t.type === 'lparen' ? n + 1 : t.type === 'rparen' ? n - 1 : n, 0
@@ -909,12 +1046,32 @@ class Calculator {
 
   _cursorLeft() {
     if (this.justCalculated) return;
-    if (this.cursorPos > 0) { this.cursorPos--; this._notify(); }
+    if (this.cursorPos <= 0) return;
+    const t = this.tokens, p = this.cursorPos;
+    // Skip the "( frac )" boundary in one press: jump from a denominator back to its numerator.
+    if (t[p - 1] && t[p - 1].type === 'lparen' &&
+        t[p - 2] && t[p - 2].type === 'operator' && t[p - 2].value === 'frac' &&
+        t[p - 3] && t[p - 3].type === 'rparen') {
+      this.cursorPos -= 3;
+    } else {
+      this.cursorPos--;
+    }
+    this._notify();
   }
 
   _cursorRight() {
     if (this.justCalculated) return;
-    if (this.cursorPos < this.tokens.length) { this.cursorPos++; this._notify(); }
+    if (this.cursorPos >= this.tokens.length) return;
+    const t = this.tokens, p = this.cursorPos;
+    // Skip the ") frac (" boundary in one press: jump from a numerator into its denominator.
+    if (t[p] && t[p].type === 'rparen' &&
+        t[p + 1] && t[p + 1].type === 'operator' && t[p + 1].value === 'frac' &&
+        t[p + 2] && t[p + 2].type === 'lparen') {
+      this.cursorPos += 3;
+    } else {
+      this.cursorPos++;
+    }
+    this._notify();
   }
 
   _countOpenParens() {
@@ -1141,7 +1298,7 @@ class DisplayManager {
       { label: 'GRAD', on: calc.angleMode === 'GRAD' },
       { label: '2nd',  on: calc.secondActive },
       { label: 'HYP',  on: calc.hypActive },
-      { label: 'U n/d',on: !calc.fracMixed },
+      { label: 'U n/d',on: calc.fracMixed },
     ];
     this.els.indicators.innerHTML = badges
       .map(b => `<span class="indicator-badge${b.on ? '' : ' inactive'}">${b.label}</span>`)
@@ -1177,6 +1334,16 @@ class DisplayManager {
         return;
       }
       if (calc.fracDisplay && calc.rawValue !== null) {
+        const pi = Evaluator.toPiMultiple(calc.rawValue);
+        if (pi) {
+          el.innerHTML = Evaluator.formatPiHTML(pi);
+          return;
+        }
+        const sq = Evaluator.toSqrtForm(calc.rawValue);
+        if (sq) {
+          el.innerHTML = Evaluator.formatSqrtHTML(sq);
+          return;
+        }
         const frac = Evaluator.toFraction(calc.rawValue);
         if (frac && frac.d > 1) {
           if (!calc.fracMixed && frac.whole !== 0) {
@@ -1254,18 +1421,39 @@ class DisplayManager {
       const n1 = tokens[i + 1];
       const n2 = tokens[i + 2];
 
-      // Stacked fraction: simple_val frac <group>
-      if ((t.type === 'number' || t.type === 'constant') &&
-          n1 && n1.type === 'operator' && n1.value === 'frac' &&
-          n2) {
-        const denEnd   = groupEndIdx(i + 2);
-        const denSlice = tokens.slice(i + 2, denEnd + 1);
-        const numHtml  = this._tokensToStringHTML([t], innerCursor(i, 1), s);
-        const denHtml  = this._tokensToStringHTML(denSlice, innerCursor(i + 2, denSlice.length), s);
-        const midCur   = (!s.used && cursorIdx === i + 1) ? cur() : '';
-        parts.push(`<span class="frac-v"><span class="frac-n">${numHtml}</span>${midCur}<span class="frac-d">${denHtml}</span></span>`);
-        i = denEnd + 1;
-        continue;
+      // Stacked fraction: <group> frac <group>
+      // Numerator can be a number, constant, or parenthesised expression
+      if (t.type === 'number' || t.type === 'constant' || t.type === 'lparen') {
+        const numEnd  = groupEndIdx(i);
+        const fracTok = tokens[numEnd + 1];
+        if (fracTok && fracTok.type === 'operator' && fracTok.value === 'frac' && tokens[numEnd + 2]) {
+          // Numerator slice — strip outer ( ) for clean display
+          let numSlice  = tokens.slice(i, numEnd + 1);
+          let numOffset = i;
+          if (numSlice.length >= 2 &&
+              numSlice[0].type === 'lparen' &&
+              numSlice[numSlice.length - 1].type === 'rparen') {
+            numSlice  = numSlice.slice(1, -1);
+            numOffset = i + 1;
+          }
+          // Denominator slice — strip outer ( ) for clean display
+          const denStart = numEnd + 2;
+          const denEnd   = groupEndIdx(denStart);
+          let denSlice   = tokens.slice(denStart, denEnd + 1);
+          let denOffset  = denStart;
+          if (denSlice.length >= 2 &&
+              denSlice[0].type === 'lparen' &&
+              denSlice[denSlice.length - 1].type === 'rparen') {
+            denSlice  = denSlice.slice(1, -1);
+            denOffset = denStart + 1;
+          }
+          const numHtml = this._tokensToStringHTML(numSlice, innerCursor(numOffset, numSlice.length), s);
+          const denHtml = this._tokensToStringHTML(denSlice, innerCursor(denOffset, denSlice.length), s);
+          const midCur  = (!s.used && cursorIdx === numEnd + 1) ? cur() : '';
+          parts.push(`<span class="frac-v"><span class="frac-n">${numHtml}</span>${midCur}<span class="frac-d">${denHtml}</span></span>`);
+          i = denEnd + 1;
+          continue;
+        }
       }
 
       // Lone frac operator
