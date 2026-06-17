@@ -540,8 +540,8 @@ class Calculator {
       case 'calculate':        this._calculate();                   break;
       case '2nd':              this._toggleSecond();                break;
       case 'mode':             this._cycleAngleMode();              break;
-      case 'up':               this._navigateHistory('up');         break;
-      case 'down':             this._navigateHistory('down');       break;
+      case 'up':               if (!this._fracUp())   this._navigateHistory('up');   break;
+      case 'down':             if (!this._fracDown()) this._navigateHistory('down'); break;
       case 'left':             this._cursorLeft();                  break;
       case 'right':            this._cursorRight();                 break;
       case 'forward':          this.justCalculated ? this._toggleFracDisplay() : this._cursorLeft();  break;
@@ -698,10 +698,9 @@ class Calculator {
     this._notify();
   }
 
-  _isSimpleGroup(toks) {
-    if (toks.length === 0) return true;
-    if (toks.length === 1) return toks[0].type === 'number' || toks[0].type === 'constant';
-    if (toks[0].type !== 'lparen') return false;
+  // True only if toks is already a single fully-enclosing ( ... ) group.
+  _isWrappedGroup(toks) {
+    if (toks.length < 2 || toks[0].type !== 'lparen') return false;
     let depth = 0;
     for (let i = 0; i < toks.length; i++) {
       if (toks[i].type === 'lparen')       depth++;
@@ -735,9 +734,10 @@ class Calculator {
       return;
     }
 
-    // Auto-wrap numerator if it's a complex expression, so the stacked display works
+    // Wrap the numerator in parens (unless already a single group) so it forms a
+    // distinct box: the display strips the outer parens, and ▲/▼ can move between boxes.
     const numToks = this.tokens.slice(0, this.cursorPos);
-    if (!this._isSimpleGroup(numToks)) {
+    if (!this._isWrappedGroup(numToks)) {
       this.tokens.splice(0, 0, { type: 'lparen' });
       this.tokens.splice(this.cursorPos + 1, 0, { type: 'rparen' });
       this.cursorPos += 2;
@@ -1046,32 +1046,61 @@ class Calculator {
 
   _cursorLeft() {
     if (this.justCalculated) return;
-    if (this.cursorPos <= 0) return;
-    const t = this.tokens, p = this.cursorPos;
-    // Skip the "( frac )" boundary in one press: jump from a denominator back to its numerator.
-    if (t[p - 1] && t[p - 1].type === 'lparen' &&
-        t[p - 2] && t[p - 2].type === 'operator' && t[p - 2].value === 'frac' &&
-        t[p - 3] && t[p - 3].type === 'rparen') {
-      this.cursorPos -= 3;
-    } else {
-      this.cursorPos--;
-    }
-    this._notify();
+    if (this.cursorPos > 0) { this.cursorPos--; this._notify(); }
   }
 
   _cursorRight() {
     if (this.justCalculated) return;
-    if (this.cursorPos >= this.tokens.length) return;
-    const t = this.tokens, p = this.cursorPos;
-    // Skip the ") frac (" boundary in one press: jump from a numerator into its denominator.
-    if (t[p] && t[p].type === 'rparen' &&
-        t[p + 1] && t[p + 1].type === 'operator' && t[p + 1].value === 'frac' &&
-        t[p + 2] && t[p + 2].type === 'lparen') {
-      this.cursorPos += 3;
-    } else {
-      this.cursorPos++;
+    if (this.cursorPos < this.tokens.length) { this.cursorPos++; this._notify(); }
+  }
+
+  // ----- Fraction-template caret moves (▼ numerator→denominator, ▲ denominator→numerator) -----
+
+  // Innermost parenthesised group enclosing the caret, or null.
+  _enclosingParens(pos) {
+    const t = this.tokens;
+    const stack = [];
+    let best = null;
+    for (let j = 0; j < t.length; j++) {
+      if (t[j].type === 'lparen') stack.push(j);
+      else if (t[j].type === 'rparen') {
+        const i = stack.pop();
+        if (i != null && i < pos && pos <= j && (!best || i > best.open)) best = { open: i, close: j };
+      }
     }
-    this._notify();
+    return best;
+  }
+
+  // ▼ from a fraction numerator into its denominator. Returns true if it moved.
+  _fracDown() {
+    if (this.justCalculated) return false;
+    const t = this.tokens;
+    const enc = this._enclosingParens(this.cursorPos);
+    if (!enc) return false;
+    const c = enc.close;
+    if (t[c + 1] && t[c + 1].type === 'operator' && t[c + 1].value === 'frac' &&
+        t[c + 2] && t[c + 2].type === 'lparen') {
+      this.cursorPos = c + 3; // just inside the denominator parens
+      this._notify();
+      return true;
+    }
+    return false;
+  }
+
+  // ▲ from a fraction denominator back into its numerator. Returns true if it moved.
+  _fracUp() {
+    if (this.justCalculated) return false;
+    const t = this.tokens;
+    const enc = this._enclosingParens(this.cursorPos);
+    if (!enc) return false;
+    const o = enc.open;
+    if (t[o - 1] && t[o - 1].type === 'operator' && t[o - 1].value === 'frac' &&
+        t[o - 2] && t[o - 2].type === 'rparen') {
+      this.cursorPos = o - 2; // end of the numerator, before its closing paren
+      this._notify();
+      return true;
+    }
+    return false;
   }
 
   _countOpenParens() {
