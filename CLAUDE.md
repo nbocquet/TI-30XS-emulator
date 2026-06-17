@@ -24,9 +24,9 @@ The entire logic lives in three files:
 
 - **`javascript.js`** — Three main classes:
   - `CalcError` — typed error thrown by the evaluator.
-  - `Evaluator` — static-only. Tokenizes, preprocesses (implicit multiplication), runs shunting-yard → RPN, evaluates. Also has `toFraction(x)` / `formatFraction(f)` for fraction display.
-  - `Calculator` — state machine. Holds token list, angle mode (DEG/RAD/GRAD), history, `fracDisplay` flag, `rawValue` (last numeric result). Single delegated click listener on `.calculator-keys`; keyboard support for digits and common operators.
-  - `DisplayManager` — reads `Calculator` state and updates the DOM.
+  - `Evaluator` — static-only. Tokenizes, preprocesses (implicit multiplication), runs shunting-yard → RPN, evaluates. Also has exact-form helpers used for display: `toFraction`/`formatFractionHTML`, `toPiMultiple`/`formatPiHTML` (π multiples), `toSqrtForm`/`formatSqrtHTML` (surds).
+  - `Calculator` — state machine. Holds token list, `cursorPos` (caret index between tokens), angle mode (DEG/RAD/GRAD), history, `fracDisplay`/`fracMixed` flags, `rawValue` (last numeric result). Single delegated click listener on `.calculator-keys`; keyboard support for digits and common operators.
+  - `DisplayManager` — reads `Calculator` state and updates the DOM. `_tokensToStringHTML` renders the expression with a blinking caret, stacked fractions, superscript exponents, and radicals; `_renderResult` shows results in exact form (fraction / π multiple / surd) unless `fracDisplay` is off.
   - `SECOND_MAP` — maps primary action → secondary action when 2nd is active.
   - `colorChanger(color)` — switches between "blue" and "pink" colorways via `data-colorway` CSS attribute.
 
@@ -37,14 +37,15 @@ The entire logic lives in three files:
 - **Expression entry**: token-based (not string concatenation). Each button appends a typed token; `_tokensToString()` renders the expression for display.
 - **Operators**: `×`→`*`, `÷`→`/` internally; display converts back.
 - **π**: uses `Math.PI` exactly.
-- **Fraction display**: on by default (`fracDisplay = true`). After calculation, if the result is a rational number with denominator ≤ 999, it is shown as `n/d` or `w n/d` (mixed number). Toggle with `2nd + n/d` (F↔D).
+- **Exact-form display**: on by default (`fracDisplay = true`). After calculation the result is shown in exact form when possible — a fraction with denominator ≤ 999 (`n/d`), a π multiple (`5π`), or a simplified surd (`5√2`). Improper fractions are the default; `fracMixed` switches to mixed numbers (`w n/d`), toggled by `2nd + n/d` (`U n/d`). The `< >` key (`toggle-display`) flips between this exact form and the decimal approximation.
+- **Fraction entry (`n/d`)**: never reuses `Ans`. Pressing `n/d` enters fraction mode — with a numerator already typed to its left it becomes the bar (the rest goes in the denominator box); otherwise it inserts an empty `▯/▯` template with the caret in the numerator. Operators typed inside a box stay in that box (so `5 n/d 2 + 6` = `5/(2+6)`), and the same applies to the `^` exponent box.
+- **Cursor**: `left`/`right` (and the `‹`/`›` forward/backward keys before a result) move the caret one token at a time, except across a fraction bar — there a single press jumps between numerator and denominator. After a result, those forward/backward keys instead toggle the exact/decimal display.
 - **Angle mode**: cycled by `mode` button (DEG → RAD → GRAD). `2nd` functions: sin⁻¹, cos⁻¹, tan⁻¹, eˣ, 10ˣ, ∛.
 - **History**: ↑/↓ arrows recall past expressions.
 - **Second screen**: floating panel showing a larger view of the display.
 
 ## Not Implemented
 
-- `left`/`right`/`forward`/`backward` — cursor navigation within expression (would need caret position tracking).
 - `data` — statistics mode.
 - `table` — table mode.
-- True stacked fraction display (shows `a b/c` text instead).
+- `INS` (`2nd + del`) — insert mode within an expression.
