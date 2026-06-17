@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<widget xmlns="http://www.w3.org/ns/widgets"
+        xmlns:ub="http://uniboard.mnemis.com/widgets"
+        id="https://github.com/nbocquet/TI-30XS-emulator"
+        version="1.0"
+        width="440"
+        height="900"
+        minimum_width="320"
+        minimum_height="600"
+        ub:resizable="true"
+        ub:transparent="false">
+  <name>TI-30XS MultiView</name>
+  <author email="nbocquet@gmail.com">Nico</author>
+  <description>Émulateur de la calculatrice TI-30XS MultiView : fractions, formes exactes (n/d, π, racines), nombres mixtes. Pour démonstrations en classe.</description>
+  <icon src="icon.png"/>
+  <content src="index.html"/>
+</widget>

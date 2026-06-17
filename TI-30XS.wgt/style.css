@@ -1,0 +1,731 @@
+*{
+    margin:0;
+}
+
+body{
+    min-height: 100vh;
+    align-items: center;
+    justify-content: center;
+    background-image: url(background.svg);
+    background-repeat: repeat;
+    background-size: 120px 120px;
+}
+
+.outer-border{
+    height:800px;
+    width:410px;
+    border: 4px solid rgb(207,207,207);
+    background-color: rgb(238, 236, 236);
+    border-top: 4px solid rgb(122, 180, 180);
+    display:flex;
+    justify-content: center;
+    border-top-right-radius: 48px;
+    border-top-left-radius: 48px;
+    border-bottom-left-radius: 138px;
+    border-bottom-right-radius: 138px;
+    margin: 30px auto;
+    box-shadow: 2px 2px 2px rgb(83, 83, 83);
+    
+}
+.inner-border{
+        display:flex;
+        height: 775px;
+        width:365px;
+        border: 1px solid rgb(238, 236, 236);
+        border-top-right-radius: 8px;
+        border-top-left-radius: 8px;
+        border-bottom-left-radius: 118px;
+        border-bottom-right-radius: 118px;
+        border-top:none;
+        border-left:none;
+        border-right:none;
+        justify-content: center;
+        background-color:rgb(122, 180, 180);           
+}
+.product-name{
+    text-align:center;
+    margin-top:0.875em;
+    color:rgb(255, 255, 255);
+}
+.product-name p{
+    font-weight: 500;
+    font-size: 1.063em;
+}
+.solar-panel{
+    display:flex;
+    width:115px;
+    height:25px;
+    border: 2px solid rgb(82, 122, 122);
+    background-color: rgba(56, 65, 56, 0.808);
+    border-radius: 4px;
+    border-top-left-radius: 10px;
+    border-top-right-radius: 10px;
+    border-top: 4px solid rgb(82, 122, 122);
+    margin: 0 auto;
+    margin-top:15px;
+}
+.panel-line{
+    width: 30px;
+    height: 25px;
+    border: 1px dashed rgba(110, 124, 110, 0.849);
+    border-bottom:none;
+    border-top:none;
+}
+
+.screen-display{
+        display:flex;
+        flex-direction:column;
+        width:300px;
+        height: 168px;
+        border: 3px solid rgb(60, 92, 92);
+        background-color: #c8d8b0;
+        background-image: linear-gradient(160deg, #d4e4bc 0%, #bdd0a0 60%, #b0c494 100%);
+        margin: 0 auto;
+        border-bottom-left-radius: 25px;
+        border-bottom-right-radius: 25px;
+        border-top-left-radius: 10px;
+        border-top-right-radius: 10px;
+        border-top: 4px solid rgb(60, 92, 92);
+        border-bottom: 2px solid rgb(60, 92, 92);
+        box-shadow: inset 0 2px 8px rgba(0,0,0,0.18);
+}
+.indicators-display{
+    display: flex;
+    gap: 5px;
+    padding: 4px 8px 0;
+    height: 18px;
+    font-size: 0.60em;
+    font-weight: bold;
+    color: rgb(30, 50, 30);
+}
+.indicator-badge{
+    border: 1px solid rgb(30, 50, 30);
+    border-radius: 2px;
+    padding: 0 3px;
+    line-height: 1.3;
+}
+.indicator-badge.inactive{
+    opacity: 0;
+}
+.previous-display{
+    flex: 1;
+    padding: 4px 8px 0 10px;
+    font-size: 1.05em;
+    color: rgb(30, 55, 30);
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.calculator-display{
+    flex-shrink: 0;
+    width:280px;
+    height:36px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    font-size:1.95em;
+    margin-left:10px;
+    margin-bottom: 4px;
+    color: rgb(20, 40, 20);
+}
+.calculator-display.error{
+    font-size: 0.95em;
+    color: rgb(140, 20, 20);
+}
+
+/* Stacked fraction display */
+.frac-v {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    margin: 0 1px;
+    line-height: 1;
+}
+.frac-n {
+    border-bottom: 1px solid currentColor;
+    padding: 0 2px 1px;
+    text-align: center;
+}
+.frac-d {
+    padding: 1px 2px 0;
+    text-align: center;
+}
+/* Fraction part sizing per context */
+.calculator-display .frac-n,
+.calculator-display .frac-d { font-size: 0.70em; }
+.previous-display .frac-n,
+.previous-display .frac-d   { font-size: 0.88em; }
+.ss-result .frac-n,
+.ss-result .frac-d          { font-size: 0.55em; }
+.ss-expression .frac-n,
+.ss-expression .frac-d      { font-size: 0.78em; }
+
+/* Mixed number: whole part adjacent to its fraction (e.g. 1 7/12) */
+.mixed-num {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+.mixed-num > .frac-v { margin-left: 2px; }
+
+/* Radical (√ / ∛) with vinculum */
+.radical-content {
+    border-top: 1.5px solid currentColor;
+    padding: 0 2px 0 1px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Menu overlay */
+.menu-title {
+    font-weight: bold;
+    margin-right: 4px;
+    color: rgb(20, 40, 20);
+}
+.menu-item {
+    display: inline-block;
+    padding: 0 3px;
+    border-radius: 2px;
+    white-space: nowrap;
+}
+.menu-selected {
+    background: rgb(30, 55, 30);
+    color: #c8d8b0;
+}
+
+/* Superscript sizing */
+sup {
+    font-size: 0.65em;
+    vertical-align: super;
+    line-height: 0;
+}
+
+/* Blinking cursor in expression */
+.calc-cursor {
+    display: inline-block;
+    width: 1px;
+    height: 0.9em;
+    background: currentColor;
+    vertical-align: text-bottom;
+    margin: 0 1px;
+    animation: calc-blink 1s step-end infinite;
+}
+@keyframes calc-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+.row-1{
+    display:flex;
+    margin-top:27px;
+}
+.column-1{
+    display:grid;
+    grid-template-columns: auto auto auto;
+    margin-left:35px;
+    margin-right:4px;
+    margin-top:4px;
+    gap:4px;
+}
+
+.column-2{
+    display:block;
+    /* border: 1px solid red; */
+    width:172px;
+    height:90px;
+}
+.design{
+    display: flex;
+    width:155px;
+    height:95px;
+    border: 1px solid rgb(238, 236, 236);
+    background-color:rgb(238, 236, 236);
+    margin-left:14px;
+    border-top-left-radius: 32px;
+    border-bottom-left-radius: 32px;
+    justify-content: center;
+    align-items: center;
+}
+.circle{
+    display:flex;
+    width:102px;
+    height:80px;
+    border-radius: 50%;
+    border: 2px solid rgb(54, 67, 71);  
+    background-color:rgb(54, 67, 71); 
+    justify-content: center;
+}
+.navigation-arrow{
+    width:20px;
+    height:22px; 
+}
+.container{
+    display:block;
+    width:80px;
+    height:70px;
+    /* border:1px solid red; */
+}
+.row{
+    display:flex;
+    justify-content:center;
+}
+#up{
+    margin-top:3px;
+    width:21px;
+}
+
+#left{
+    margin-right: 15px;
+    margin-top:5px;
+    width: 24px;
+    height:20px;
+}
+#right{
+    margin-left: 15px;
+    margin-top: 5px;
+    width:24px;
+    height:20px;
+}
+#down{
+    margin-top:3px;
+    width:21px;
+}
+.row-2{
+    display:grid;
+    grid-template-columns: auto auto auto auto auto;
+    width: 330px;
+    margin: 5px auto;
+    margin-top: 22px;
+    gap:3px;
+}
+#forward,
+#backward{
+    width:30px;
+}
+button:hover{
+    cursor:pointer;
+}
+
+button{
+    width:60px;
+    height:40px;
+    border-radius: 16px;
+    transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, background-color 0.08s ease-out;
+}
+button:active{
+    transform: scale(0.91);
+}
+.button-container{
+    display:flex;
+    width:60px;
+}
+.operator{
+    background-color:rgb(66, 79, 85);
+    border: none;
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 6px rgba(0,0,0,0.4);
+    color:white;
+    font-size:1.375em;
+    font-weight: bold;
+}
+.operator:hover{
+    background-color:rgb(76, 91, 97);
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 8px rgba(0,0,0,0.5);
+}
+.operator:active{
+    background-color:rgb(45, 56, 58);
+    box-shadow: 0 1px 0 rgb(35, 44, 46), 0 1px 3px rgba(0,0,0,0.4);
+}
+.number{
+    font-size: 1.063em;
+    font-weight: bold;
+}
+.NaN{
+    color:white;
+    font-size:0.813em;
+    font-weight:bold;
+    background-color:rgb(122, 180, 180);
+    border: none;
+    box-shadow: 0 3px 0 rgb(80, 120, 120), 0 4px 6px rgba(0,0,0,0.35);
+}
+.NaN:hover{
+    background-color:rgb(135, 193, 193);
+    box-shadow: 0 3px 0 rgb(80, 120, 120), 0 4px 8px rgba(0,0,0,0.45);
+}
+.NaN:active{
+    background-color:rgb(91, 134, 134);
+    box-shadow: 0 1px 0 rgb(80, 120, 120), 0 1px 3px rgba(0,0,0,0.35);
+}
+.navigation-arrow{
+    background-color:rgb(66, 79, 85);
+    border: none;
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 6px rgba(0,0,0,0.4);
+    color:white;
+    font-size:1.375em;
+    font-weight: bold;
+}
+.navigation-arrow:hover{
+    background-color:rgb(76, 91, 97);
+    box-shadow: 0 3px 0 rgb(35, 44, 46), 0 4px 8px rgba(0,0,0,0.5);
+}
+.navigation-arrow:active{
+    background-color:rgb(45, 56, 58);
+    box-shadow: 0 1px 0 rgb(35, 44, 46), 0 1px 3px rgba(0,0,0,0.4);
+}
+.number{
+    background-color:rgb(232, 235, 235);
+    border: none;
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 6px rgba(0,0,0,0.25);
+    color:rgb(47, 56, 58);
+}
+.number:hover{
+    background-color:rgb(240, 242, 242);
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 8px rgba(0,0,0,0.3);
+}
+.number:active{
+    background-color:rgb(195, 198, 200);
+    box-shadow: 0 1px 0 rgb(140, 150, 153), 0 1px 3px rgba(0,0,0,0.25);
+}
+#secondBtn{
+    color:rgb(40, 55, 40);
+    background-color: #aacc7a;
+    border: none;
+    box-shadow: 0 3px 0 #7a9c4a, 0 4px 6px rgba(0,0,0,0.35);
+    font-size:0.813em;
+    font-weight:bold;
+}
+#secondBtn:hover{
+    background-color: #bcd98a;
+    box-shadow: 0 3px 0 #7a9c4a, 0 4px 8px rgba(0,0,0,0.45);
+}
+#secondBtn:active{
+    background-color: #8aac5a;
+    box-shadow: 0 1px 0 #7a9c4a, 0 1px 3px rgba(0,0,0,0.35);
+}
+.accessory{
+    background-color:rgb(232, 235, 235);
+    border: none;
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 6px rgba(0,0,0,0.25);
+    color:rgb(47, 56, 58);
+}
+.accessory:hover{
+    background-color:rgb(240, 242, 242);
+    box-shadow: 0 3px 0 rgb(140, 150, 153), 0 4px 8px rgba(0,0,0,0.3);
+}
+.accessory:active{
+    background-color:rgb(195, 198, 200);
+    box-shadow: 0 1px 0 rgb(140, 150, 153), 0 1px 3px rgba(0,0,0,0.25);
+}
+.negative{
+    font-size: 1.000em;
+    font-weight: bold;
+}
+.enter{
+    font-size: 0.813em;
+    font-weight: bold;
+}
+.decimal{
+    font-size: 1.500em;
+}
+.color-selector{
+    display:flex;
+    /* border: 1px solid red; 
+    background-color:white; */
+    margin: 0 auto;
+    margin-bottom: 25px;
+    justify-content:center;
+    align-items:center;
+}
+#option-1{
+    width:35px;
+    height:35px;
+    border-radius:50%;
+    background-color:rgb(122, 180, 180);  
+    margin-right:40px;  
+    border: 1px solid black;
+}
+#option-1:hover{
+    background-color:rgb(107, 156, 156); 
+}
+#option-2{
+    width:35px;
+    height:35px;
+    border-radius:50%;
+    background-color:pink;
+    border: 1px solid black;
+}
+#option-2:hover{
+    background-color:rgb(192, 145, 153);
+    
+}
+
+@media screen and (max-width:500px){
+    .outer-border{
+        height: 749px;
+        width:379px;
+    }
+}
+
+@media screen and (max-width:500px){
+    .inner-border{
+        height: 726px;
+        width: 339px;
+    }
+}
+@media screen and (max-width:500px){
+    .solar-panel{
+        height: 24px;
+        width: 106px;
+    }
+}
+@media screen and (max-width:500px){
+    .screen-display{
+        height: 140px;
+        width: 283px;
+    }
+}
+@media screen and (max-width:500px){
+    button{
+        height: 39px;
+        width: 57px;
+    }
+}
+
+@media screen and (max-width:500px){
+    .row-1{
+        margin-top:20px;
+        margin-left:1px;
+    }
+}
+@media screen and (max-width:500px){
+    .row-2{
+        width: 297px;
+        margin-left:35px;
+        margin-top: 17px;
+        gap:3px;
+    }
+}
+@media screen and (max-width:500px){
+    .column-1{
+        margin-left:33px;
+        margin-right:3.6px;
+        margin-top:3.6px;
+        gap:3.6px;
+    }
+}
+@media screen and (max-width:500px){
+    .column-2{
+        width: 155px;
+        height:81px;
+    }
+}
+@media screen and (max-width:500px){
+    .circle{
+        width: 99px;
+        height:79px;
+        margin-right:1px;
+    }
+}
+
+@media screen and (max-width:500px){
+    .design{
+        width:141px;
+        height: 90px;
+    }
+}
+@media screen and (max-width:500px){
+    .operator{
+        font-size:1.15em;
+    }
+}
+
+@media screen and (max-width:500px){
+    .navigation-arrow{
+        max-width:20px;
+        max-height:22px;
+    }
+}
+@media screen and (max-width:500px){
+    .NaN{
+        font-size: 0.720em;
+        font-weight:bold ;
+    }
+}
+@media screen and (max-width:500px){
+    #option-1{
+        width:27px;
+        height:27px;
+    }
+}
+@media screen and (max-width:500px){
+    #option-2{
+        width:27px;
+        height:27px;
+    }
+}
+@media screen and (max-width:500px){
+    .calculator-display{
+        width:265px;
+        height:35px;
+        margin-left:1px;
+        margin-top: 32px;
+    }
+}
+@media screen and (max-width:500px){
+    .previous-display{
+        width:250px;
+    }
+}
+
+@media screen and (max-width:500px){
+    #enter{
+        font-size: 0.78em;
+    }
+}
+
+/* === Dual-function button labels === */
+.second-label {
+    display: block;
+    font-size: 0.62em;
+    line-height: 1;
+    color: #dbf78d;
+    font-weight: normal;
+}
+.primary-label {
+    display: block;
+    line-height: 1.15;
+}
+button:has(.primary-label) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    padding: 2px 3px;
+}
+.second-label { order: -1; }
+body.second-active .second-label  { font-size: 1em; font-weight: bold; order: 0; }
+body.second-active .primary-label { display: none; }
+#secondBtn.active {
+    background-color: #d4a017;
+    box-shadow: 0 1px 0 #a07800, 0 1px 3px rgba(0,0,0,0.4);
+}
+
+/* === Pink colorway via CSS attribute (replaces inline JS styles) === */
+body[data-colorway="pink"] #outer        { border-top-color: pink; }
+body[data-colorway="pink"] #inner-color  { background-color: pink; }
+body[data-colorway="pink"] #screen       { border-color: rgb(175, 134, 141); }
+body[data-colorway="pink"] #solar        { border-color: rgb(175, 134, 141); }
+
+body[data-colorway="pink"] .NaN {
+    background-color: rgb(230, 150, 165);
+    border: none;
+    box-shadow: 0 3px 0 rgb(170, 100, 115), 0 4px 6px rgba(0,0,0,0.35);
+}
+body[data-colorway="pink"] .NaN:hover  { background-color: rgb(245, 170, 183); }
+body[data-colorway="pink"] .NaN:active {
+    background-color: rgb(192, 125, 140);
+    box-shadow: 0 1px 0 rgb(170, 100, 115), 0 1px 3px rgba(0,0,0,0.35);
+}
+body[data-colorway="pink"] #secondBtn {
+    background-color: #aacc7a;
+    border: none;
+    box-shadow: 0 3px 0 #7a9c4a, 0 4px 6px rgba(0,0,0,0.35);
+}
+body[data-colorway="pink"] #secondBtn:hover  { background-color: #bcd98a; }
+body[data-colorway="pink"] #secondBtn:active {
+    background-color: #8aac5a;
+    box-shadow: 0 1px 0 #7a9c4a, 0 1px 3px rgba(0,0,0,0.35);
+}
+
+/* === Second screen panel === */
+.second-screen {
+    position: fixed;
+    top: 80px;
+    left: calc(50% + 230px);
+    width: 360px;
+    background: #c8d8b0;
+    border: 3px solid rgb(60, 92, 92);
+    border-radius: 12px;
+    box-shadow: 4px 4px 18px rgba(0,0,0,0.45);
+    z-index: 1000;
+    user-select: none;
+}
+.second-screen.hidden { display: none; }
+
+.second-screen-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 12px;
+    background: rgb(60, 92, 92);
+    color: white;
+    border-radius: 8px 8px 0 0;
+    cursor: move;
+}
+.second-screen-title { font-weight: bold; font-size: 0.9em; }
+#secondScreenClose {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1em;
+    cursor: pointer;
+    width: auto;
+    height: auto;
+    border-radius: 4px;
+    padding: 0 4px;
+}
+#secondScreenClose:hover { background: rgba(255,255,255,0.2); }
+
+.second-screen-body { padding: 8px 12px 16px; }
+
+.ss-indicators {
+    display: flex;
+    gap: 5px;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: rgb(30, 50, 30);
+    min-height: 22px;
+    margin-bottom: 4px;
+}
+.ss-expression {
+    font-size: 1.6em;
+    text-align: right;
+    min-height: 1.8em;
+    color: rgb(30, 55, 30);
+    white-space: nowrap;
+    overflow: hidden;
+    border-bottom: 1px solid rgba(60,92,60,0.3);
+    padding-bottom: 6px;
+    margin-bottom: 6px;
+}
+.ss-result {
+    font-size: 2.8em;
+    text-align: right;
+    font-weight: bold;
+    color: rgb(20, 40, 20);
+    min-height: 1.2em;
+}
+.ss-result.error { font-size: 1.2em; color: rgb(140, 20, 20); }
+
+/* === Second screen toggle button === */
+.second-screen-btn {
+    display: block;
+    margin: 6px auto 20px;
+    padding: 6px 18px;
+    background: rgb(60, 92, 92);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.88em;
+    width: auto;
+    height: auto;
+    box-shadow: 0 2px 0 rgb(35, 60, 60), 0 3px 5px rgba(0,0,0,0.3);
+    transition: transform 0.08s ease-out, box-shadow 0.08s ease-out;
+}
+.second-screen-btn:hover { background: rgb(75, 112, 112); }
+.second-screen-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 1px 0 rgb(35, 60, 60), 0 1px 3px rgba(0,0,0,0.3);
+}
