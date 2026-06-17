@@ -162,6 +162,14 @@ body{
 .ss-expression .frac-n,
 .ss-expression .frac-d      { font-size: 0.78em; }
 
+/* Mixed number: whole part adjacent to its fraction (e.g. 1 7/12) */
+.mixed-num {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+.mixed-num > .frac-v { margin-left: 2px; }
+
 /* Radical (√ / ∛) with vinculum */
 .radical-content {
     border-top: 1.5px solid currentColor;

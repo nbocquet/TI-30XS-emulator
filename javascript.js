@@ -20,6 +20,7 @@ class Evaluator {
     '*':    { precedence: 2, assoc: 'L' },
     '/':    { precedence: 2, assoc: 'L' },
     'frac': { precedence: 2, assoc: 'L' }, // n/d fraction bar — same as /
+    'mixed':{ precedence: 1, assoc: 'L' }, // mixed-number join: unit + fraction (lower than frac)
     'int/': { precedence: 2, assoc: 'L' }, // integer division
     '^':    { precedence: 4, assoc: 'R' },
   };
@@ -70,6 +71,9 @@ class Evaluator {
       case 'frac':
         if (b === 0) throw new CalcError('DIVIDE BY 0');
         return a / b;
+      case 'mixed':
+        // unit + fractional part; the unit's sign carries the whole quantity (−1¾ = −(1+¾))
+        return a < 0 ? a - b : a + b;
       case '^':
         if (a === 0 && b < 0)           throw new CalcError('DIVIDE BY 0');
         if (a < 0 && !Number.isInteger(b)) throw new CalcError('DOMAIN ERROR');
@@ -457,6 +461,7 @@ const SECOND_MAP = {
   log:           'pow10',
   math:          'cbrt',
   'n/d':         'und',
+  exponent:      'nd-und',
   'toggle-display': 'F↔D',
   'open-paren':  'percent',
   'close-paren': 'topercent',
@@ -549,7 +554,8 @@ class Calculator {
       case 'percent':          this._inputPostfix('percent');       break;
       case 'topercent':        this._toPercent();                   break;
       case 'ans':              this._inputConstant('Ans');          break;
-      case 'und':              this._toggleFracMixed();             break;
+      case 'und':              this._inputMixed();                  break;
+      case 'nd-und':           this._toggleFracMixed();             break;
       case 'ins':              /* INS not yet implemented */        break;
       case 'quit':             this.menuState = null; this._notify(); break;
       case 'comma':            this._inputComma();                  break;
@@ -749,6 +755,36 @@ class Calculator {
       { type: 'rparen' }
     );
     this.cursorPos += 2; // cursor between ( and )
+    this._notify();
+  }
+
+  // 2nd+n/d — enter a mixed number "U n/d". The number just typed becomes the unit;
+  // structure ( U mixed (n) frac (d) ) is atomic and evaluates to U + n/d.
+  _inputMixed() {
+    if (this.error) { this.error = null; this._notify(); return; }
+    if (this.justCalculated) {
+      this.tokens = []; this.result = null; this.justCalculated = false; this.cursorPos = 0;
+    }
+    const prev = this.tokens[this.cursorPos - 1];
+    let unit, removeCount;
+    if (prev && prev.type === 'number') {
+      unit = { type: 'number', value: prev.value };
+      removeCount = 1;
+    } else {
+      unit = { type: 'number', value: '0' };
+      removeCount = 0;
+    }
+    const at = this.cursorPos - removeCount;
+    this.tokens.splice(at, removeCount,
+      { type: 'lparen' },
+      unit,
+      { type: 'operator', value: 'mixed' },
+      { type: 'lparen' }, { type: 'rparen' }, // numerator box
+      { type: 'operator', value: 'frac' },
+      { type: 'lparen' }, { type: 'rparen' }, // denominator box
+      { type: 'rparen' }
+    );
+    this.cursorPos = at + 4; // inside the numerator parens: ( U mixed ( ‸ ) …
     this._notify();
   }
 
@@ -1051,7 +1087,24 @@ class Calculator {
 
   _cursorRight() {
     if (this.justCalculated) return;
-    if (this.cursorPos < this.tokens.length) { this.cursorPos++; this._notify(); }
+    if (this.cursorPos >= this.tokens.length) return;
+    const t = this.tokens, p = this.cursorPos;
+    // Exiting a mixed number: its denominator ) is followed by the wrapper ) — skip both.
+    if (t[p] && t[p].type === 'rparen' && t[p + 1] && t[p + 1].type === 'rparen') {
+      const den = this._enclosingParens(p);
+      if (den && den.close === p && t[den.open - 1] &&
+          t[den.open - 1].type === 'operator' && t[den.open - 1].value === 'frac') {
+        const outer = this._enclosingParens(den.open);
+        if (outer && outer.close === p + 1 && t[outer.open + 2] &&
+            t[outer.open + 2].type === 'operator' && t[outer.open + 2].value === 'mixed') {
+          this.cursorPos = p + 2;
+          this._notify();
+          return;
+        }
+      }
+    }
+    this.cursorPos++;
+    this._notify();
   }
 
   // ----- Fraction-template caret moves (▼ numerator→denominator, ▲ denominator→numerator) -----
@@ -1450,6 +1503,28 @@ class DisplayManager {
       const n1 = tokens[i + 1];
       const n2 = tokens[i + 2];
 
+      // Mixed number: ( U mixed (n) frac (d) ) → render unit adjacent to the stacked fraction
+      if (t.type === 'lparen') {
+        const close = findMatchingRparen(i);
+        if (close !== -1) {
+          const uEnd = groupEndIdx(i + 1);
+          const mtok = tokens[uEnd + 1];
+          if (mtok && mtok.type === 'operator' && mtok.value === 'mixed') {
+            let uSlice = tokens.slice(i + 1, uEnd + 1), uOff = i + 1;
+            if (uSlice.length >= 2 && uSlice[0].type === 'lparen' &&
+                uSlice[uSlice.length - 1].type === 'rparen') { uSlice = uSlice.slice(1, -1); uOff = i + 2; }
+            const fStart  = uEnd + 2;                      // start of the (n) frac (d) part
+            const fSlice  = tokens.slice(fStart, close);   // up to (not incl.) outer )
+            const unitHtml = this._tokensToStringHTML(uSlice, innerCursor(uOff, uSlice.length), s);
+            const midCur   = (!s.used && cursorIdx === uEnd + 1) ? cur() : '';
+            const fracHtml = this._tokensToStringHTML(fSlice, innerCursor(fStart, fSlice.length), s);
+            parts.push(`<span class="mixed-num">${unitHtml}${midCur}${fracHtml}</span>`);
+            i = close + 1;
+            continue;
+          }
+        }
+      }
+
       // Stacked fraction: <group> frac <group>
       // Numerator can be a number, constant, or parenthesised expression
       if (t.type === 'number' || t.type === 'constant' || t.type === 'lparen') {
@@ -1567,6 +1642,7 @@ class DisplayManager {
           case '*':    return '×';
           case '/':    return '÷';
           case 'frac': return '/';
+          case 'mixed': return ' ';
           case 'int/': return ' int÷ ';
           default:     return t.value;
         }
