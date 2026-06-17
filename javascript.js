@@ -704,6 +704,28 @@ class Calculator {
     this._notify();
   }
 
+  // Index where the operand ending just before `end` begins: a single number/constant,
+  // or a parenthesised group / function call (e.g. (2+3), sin(x)). Used to scope the
+  // numerator when n/d is pressed after a value.
+  _operandStart(end) {
+    const t = this.tokens;
+    const pv = t[end - 1];
+    if (!pv) return end;
+    if (pv.type === 'number' || pv.type === 'constant' || pv.type === 'postfix-function') {
+      return end - 1;
+    }
+    if (pv.type === 'rparen') {
+      let depth = 0, i = end - 1;
+      for (; i >= 0; i--) {
+        if (t[i].type === 'rparen') depth++;
+        else if (t[i].type === 'lparen') { depth--; if (depth === 0) break; }
+      }
+      if (i > 0 && t[i - 1].type === 'function') i--; // include the function name
+      return i;
+    }
+    return end - 1;
+  }
+
   // True only if toks is already a single fully-enclosing ( ... ) group.
   _isWrappedGroup(toks) {
     if (toks.length < 2 || toks[0].type !== 'lparen') return false;
@@ -740,11 +762,16 @@ class Calculator {
       return;
     }
 
-    // Wrap the numerator in parens (unless already a single group) so it forms a
+    // Only the immediately-preceding operand becomes the numerator (like the real
+    // device: "ce nombre devient le numérateur") — not the whole expression to the
+    // left. So 4/5 + 6 [n/d] 5 gives 4/5 + 6/5, not (4/5+6)/5.
+    const start = this._operandStart(this.cursorPos);
+
+    // Wrap that operand in parens (unless already a single group) so it forms a
     // distinct box: the display strips the outer parens, and ▲/▼ can move between boxes.
-    const numToks = this.tokens.slice(0, this.cursorPos);
+    const numToks = this.tokens.slice(start, this.cursorPos);
     if (!this._isWrappedGroup(numToks)) {
-      this.tokens.splice(0, 0, { type: 'lparen' });
+      this.tokens.splice(start, 0, { type: 'lparen' });
       this.tokens.splice(this.cursorPos + 1, 0, { type: 'rparen' });
       this.cursorPos += 2;
     }
