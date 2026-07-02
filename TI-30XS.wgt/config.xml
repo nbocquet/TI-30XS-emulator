@@ -8,7 +8,7 @@
         minimum_width="320"
         minimum_height="600"
         ub:resizable="true"
-        ub:transparent="false">
+        ub:transparent="true">
   <name>TI-30XS MultiView</name>
   <author email="nbocquet@gmail.com">Nico</author>
   <description>Émulateur de la calculatrice TI-30XS MultiView : fractions, formes exactes (n/d, π, racines), nombres mixtes. Pour démonstrations en classe.</description>

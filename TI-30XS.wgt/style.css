@@ -2,17 +2,22 @@
     margin:0;
 }
 
+html{
+    height: 100%;
+}
+
 body{
-    min-height: 100vh;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-image: url(background.svg);
-    background-repeat: repeat;
-    background-size: 120px 120px;
+    overflow: hidden;
+    background: transparent;
 }
 
 .outer-border{
-    height:800px;
+    height:780px;
     width:410px;
     border: 4px solid rgb(207,207,207);
     background-color: rgb(238, 236, 236);
@@ -23,7 +28,7 @@ body{
     border-top-left-radius: 48px;
     border-bottom-left-radius: 138px;
     border-bottom-right-radius: 138px;
-    margin: 30px auto;
+    margin: 0 auto 6px;
     box-shadow: 2px 2px 2px rgb(83, 83, 83);
     
 }
@@ -432,7 +437,7 @@ button:active{
     /* border: 1px solid red; 
     background-color:white; */
     margin: 0 auto;
-    margin-bottom: 25px;
+    margin-bottom: 6px;
     justify-content:center;
     align-items:center;
 }
@@ -641,8 +646,8 @@ body[data-colorway="pink"] #secondBtn:active {
 /* === Second screen panel === */
 .second-screen {
     position: fixed;
-    top: 80px;
-    left: calc(50% + 230px);
+    top: 8px;
+    left: calc(50% - 180px);
     width: 360px;
     background: #c8d8b0;
     border: 3px solid rgb(60, 92, 92);
@@ -652,6 +657,14 @@ body[data-colorway="pink"] #secondBtn:active {
     user-select: none;
 }
 .second-screen.hidden { display: none; }
+
+@media screen and (max-width:380px){
+    .second-screen {
+        left: 8px;
+        right: 8px;
+        width: auto;
+    }
+}
 
 .second-screen-header {
     display: flex;
@@ -711,7 +724,7 @@ body[data-colorway="pink"] #secondBtn:active {
 /* === Second screen toggle button === */
 .second-screen-btn {
     display: block;
-    margin: 6px auto 20px;
+    margin: 0 auto;
     padding: 6px 18px;
     background: rgb(60, 92, 92);
     color: white;
